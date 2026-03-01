@@ -3,67 +3,34 @@ name: ATLAS Maestro CI/CD
 on:
   push:
     branches:
-      - main # Se ejecuta automáticamente al subir cambios a la rama principal
+      - main
 
 jobs:
-  deploy-frontend:
-    name: Desplegar Frontend (srv-cpan01)
+  deploy:
+    name: Despliegue Directo (Self-Hosted)
     runs-on: self-hosted
     steps:
       - name: Descargar código del repositorio
         uses: actions/checkout@v4
 
-      - name: Transferir archivos Frontend por SCP
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SERVER_WEB_IP }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "frontend/*"
-          target: "/var/www/dashboard/"
-          strip_components: 1
+      - name: Configurar Llave SSH Interna
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/github_key
+          chmod 600 ~/.ssh/github_key
+          ssh-keyscan -H ${{ secrets.SERVER_WEB_IP }} >> ~/.ssh/known_hosts
 
-      - name: Aplicar reglas SELinux y Permisos
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SERVER_WEB_IP }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            sudo /bin/chmod 644 /var/www/dashboard/*
+      - name: Desplegar Frontend (Hacia srv-cpan01)
+        run: |
+          scp -i ~/.ssh/github_key -r frontend/* ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_WEB_IP }}:/var/www/dashboard/
+          ssh -i ~/.ssh/github_key ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_WEB_IP }} "sudo /bin/chmod 644 /var/www/dashboard/*"
 
-  deploy-backend:
-    name: Desplegar Backend (srvu-cpan03)
-    runs-on: ubuntu-latest
-    steps:
-      - name: Descargar código del repositorio
-        uses: actions/checkout@v4
-
-      - name: Transferir archivos Backend por SCP
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SERVER_API_IP }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "backend/*"
-          target: "/opt/api-ircnl/"
-          strip_components: 1
-
-      - name: Inyectar Variables, Instalar y Reiniciar PM2
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SERVER_API_IP }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            # 1. Inyectar variables de entorno de producción
-            echo "${{ secrets.ENV_PRODUCTION }}" > /opt/api-ircnl/.env
-            sudo /bin/chmod 600 /opt/api-ircnl/.env
-            
-            # 2. Instalar dependencias
-            cd /opt/api-ircnl/
-            npm install --production
-            
-            # 3. Reiniciar el motor PM2 usando NOPASSWD
-            sudo /usr/bin/pm2 restart api-ircnl --update-env
-            sudo /usr/bin/pm2 save
+      - name: Desplegar Backend (Local en srvu-cpan03)
+        run: |
+          cp -r backend/* /opt/api-ircnl/
+          echo "${{ secrets.ENV_PRODUCTION }}" > /opt/api-ircnl/.env
+          sudo /bin/chmod 600 /opt/api-ircnl/.env
+          cd /opt/api-ircnl/
+          npm install --production
+          sudo /usr/bin/pm2 restart api-ircnl --update-env
+          sudo /usr/bin/pm2 save
