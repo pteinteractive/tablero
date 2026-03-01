@@ -32,5 +32,5 @@ jobs:
           sudo /bin/chmod 600 /opt/api-ircnl/.env
           cd /opt/api-ircnl/
           npm install --production
-          sudo /usr/bin/pm2 restart api-ircnl --update-env
-          sudo /usr/bin/pm2 save
+	  pm2 restart api-ircnl --update-env
+          pm2 save
