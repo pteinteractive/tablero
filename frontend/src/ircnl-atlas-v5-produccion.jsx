@@ -6,16 +6,7 @@ import {
 } from "recharts";
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// DATOS REALES (verificados en API HubSpot · Pipeline Catastro 19584269)
-// Período completo: 13 Feb 2023 – 27 Feb 2026 · Total: 130,639 tickets
-//
-// ARQUITECTURA DE CACHÉ (para implementación en worker.js):
-//   Sync: cada hora de 07:00 a 17:00 CST de lunes a viernes
-//         → node-cron: '0 7-17 * * 1-5'
-//   Cache clear: diariamente a las 03:00 CST
-//         → node-cron: '0 3 * * *'  → DELETE FROM tickets WHERE sync_date < NOW()-7d
-//   Búsqueda en vivo: tab "Búsqueda" hace fetch directo a la BD local (no API)
-//   Búsqueda expediente/correo específico: si no está en caché → fetch a API HubSpot
+// DATOS REALES Y CONSTANTES
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const PIPELINE_ID = "19584269";
@@ -105,7 +96,7 @@ const PERIODOS = [
   { id:"2026",      label:"2026",          sub:"Ene–Feb · 15,973",    total:15973,  cer:10418, rech:2747,  enAten:2808  },
   { id:"2025",      label:"2025",          sub:"Ene–Dic · 84,428",    total:84428,  cer:55400, rech:13800, enAten:15228 },
   { id:"2024",      label:"2024",          sub:"Ene–Dic · 28,935",    total:28935,  cer:18200, rech:4200,  enAten:6535  },
-  { id:"custom",    label:"Personalizado", sub:"Elegir fechas",        total:130639, cer:85068, rech:20927, enAten:22641 },
+  { id:"custom",    label:"Personalizado", sub:"Elegir fechas",       total:130639, cer:85068, rech:20927, enAten:22641 },
 ];
 
 const TABS = [
@@ -119,7 +110,6 @@ const TABS = [
   { id:"sincronizacion", label:"Sincronización", icon:"↻" },
 ];
 
-// Agentes reales (muestra del catálogo completo)
 const AGENTES = {
   "332438568":"CARLOS ALBERTO MELENDEZ GOMEZ",
   "332438570":"Karen Sarahí Cavazos Mota",
@@ -137,94 +127,6 @@ const AGENTES = {
   "1687461380":"YESIKA MARLEN MARTINEZ RUIZ",
 };
 
-// Datos de demostración para el tab Búsqueda (en producción vienen de la BD local)
-const DEMO_RESULTADOS = [
-  {
-    id:"42580559456",
-    subject:"BASILIO CRUZ PEREZ 42580559456",
-    expediente_catastral:"N/A",
-    expediente_municipio:"19",
-    folio:null,
-    nombre_persona_tramite:"Basilio Cruz Pérez",
-    correo_solicitante:"inmuebles.tramites@hotmail.com",
-    curp:null,
-    tramite_solicitado1:"Constancia de no inscripción catastral",
-    tipo_tramite:"certificaciones",
-    hs_pipeline_stage:"47916053",
-    hubspot_owner_id:"338005281",
-    hubspot_owner_assigneddate:"2026-02-26T22:03:18.985Z",
-    hubspot_team_id:"13293855",
-    createdate:"2026-02-26T20:55:41.244Z",
-    closed_date:"2026-02-26T22:43:33.098Z",
-    first_agent_reply_date:"2026-02-26T22:05:25.300Z",
-    last_reply_date:"2026-02-26T22:31:33.171Z",
-    hs_last_message_sent_at:"2026-02-26T22:43:30.821Z",
-    time_to_close:6471854,
-    time_to_first_agent_reply:4184056,
-    hs_time_to_first_rep_assignment:7373,
-    num_notes:5,
-    hs_num_times_contacted:5,
-    content:null,
-    es_masiva:false,
-    solicitud:"[PDF adjunto]",
-    ine_ticket:"[PDF adjunto]",
-    tiempos:"26/02/2026 20:55:49",
-    nombredia:"Jueves",
-    interacciones:[
-      { tipo:"Asignación", fecha:"2026-02-26T22:03:18Z", agente:"maria dolores briones de la fuente", nota:"Ticket asignado automáticamente" },
-      { tipo:"Primera respuesta", fecha:"2026-02-26T22:05:25Z", agente:"maria dolores briones de la fuente", nota:"Solicitud recibida, en revisión" },
-      { tipo:"Nota interna", fecha:"2026-02-26T22:15:10Z", agente:"maria dolores briones de la fuente", nota:"Documentos verificados correctamente" },
-      { tipo:"Mensaje ciudadano", fecha:"2026-02-26T22:31:33Z", agente:"Ciudadano", nota:"¿Cuándo estará listo el trámite?" },
-      { tipo:"Cierre", fecha:"2026-02-26T22:43:33Z", agente:"maria dolores briones de la fuente", nota:"Constancia emitida y enviada al solicitante" },
-    ],
-    timeline:[
-      { etapa:"Recibido",   entrada:"2026-02-26T20:55:41Z", salida:"2026-02-26T22:03:18Z", duracion_min:68  },
-      { etapa:"Asignado",   entrada:"2026-02-26T22:03:18Z", salida:"2026-02-26T22:05:25Z", duracion_min:2   },
-      { etapa:"En proceso", entrada:"2026-02-26T22:05:25Z", salida:"2026-02-26T22:43:33Z", duracion_min:38  },
-      { etapa:"Cerrado",    entrada:"2026-02-26T22:43:33Z", salida:null,                    duracion_min:null },
-    ],
-  },
-  {
-    id:"42595263414",
-    subject:"Certificaciones- 42595263414",
-    expediente_catastral:"28002280012",
-    expediente_municipio:"28",
-    folio:null,
-    nombre_persona_tramite:"Israel García Silva",
-    correo_solicitante:"alisadame@hotmail.com",
-    curp:"GASI310914HNLRLS04",
-    tramite_solicitado1:"Cédula única catastral",
-    tipo_tramite:"certificaciones",
-    hs_pipeline_stage:"47866392",
-    hubspot_owner_id:"338005268",
-    hubspot_owner_assigneddate:"2026-02-27T05:40:12Z",
-    hubspot_team_id:"13293855",
-    createdate:"2026-02-27T05:40:05.504Z",
-    closed_date:null,
-    first_agent_reply_date:null,
-    last_reply_date:null,
-    hs_last_message_sent_at:null,
-    time_to_close:null,
-    time_to_first_agent_reply:null,
-    hs_time_to_first_rep_assignment:6006,
-    num_notes:1,
-    hs_num_times_contacted:0,
-    content:null,
-    es_masiva:false,
-    solicitud:"[PDF adjunto]",
-    ine_ticket:"[PDF adjunto]",
-    tiempos:"27/02/2026 05:40:12",
-    nombredia:"Viernes",
-    interacciones:[
-      { tipo:"Recepción",  fecha:"2026-02-27T05:40:05Z", agente:"Sistema",                          nota:"Trámite recibido vía Sitio Web IRCNL" },
-      { tipo:"Asignación", fecha:"2026-02-27T05:40:12Z", agente:"MARIA GUADALUPE HEREDIA GARCIA",   nota:"Asignado automáticamente en 6 segundos" },
-    ],
-    timeline:[
-      { etapa:"Recibido", entrada:"2026-02-27T05:40:05Z", salida:null, duracion_min:null },
-    ],
-  },
-];
-
 // ─── TEMAS ───────────────────────────────────────────────────────────────────
 const buildTheme = (dark) => dark ? {
   appBg:"#0b1120", sidebar:"#070d18", sidebd:"rgba(255,255,255,0.06)",
@@ -235,10 +137,10 @@ const buildTheme = (dark) => dark ? {
   terrac:"#e07b54", terracPl:"#2a100a",
   green:"#3dba7f", greenPl:"#081c12",
   amber:"#e8b84b", amberPl:"#221600",
-  red:"#e8675a",   redPl:"#240a08",
-  teal:"#38c9bc",  tealPl:"#052220",
+  red:"#e8675a",  redPl:"#240a08",
+  teal:"#38c9bc", tealPl:"#052220",
   slate:"#6ea3c8", slatePl:"#0d1e2e",
-  gold:"#d4a843",  goldPl:"#1c1100",
+  gold:"#d4a843", goldPl:"#1c1100",
   sc: ["#5b9cf6","#6c71e8","#e8b84b","#e8675a","#38c9bc","#3dba7f","#e07b54"],
   shadow:"0 4px 24px rgba(0,0,0,.5)", shadowSm:"0 2px 8px rgba(0,0,0,.4)",
 } : {
@@ -250,16 +152,16 @@ const buildTheme = (dark) => dark ? {
   terrac:"#b94e1e", terracPl:"#fce8e0",
   green:"#1a7848", greenPl:"#e0f5ea",
   amber:"#8a5c00", amberPl:"#fdf3dc",
-  red:"#b52626",   redPl:"#fce8e8",
-  teal:"#0c6e63",  tealPl:"#ddf6f3",
+  red:"#b52626",  redPl:"#fce8e8",
+  teal:"#0c6e63", tealPl:"#ddf6f3",
   slate:"#2e4e6e", slatePl:"#e2eaf2",
-  gold:"#8a6200",  goldPl:"#fdf5e0",
+  gold:"#8a6200", goldPl:"#fdf5e0",
   sc: ["#1a52c4","#5c3aa8","#8a5c00","#b52626","#0c6e63","#1a7848","#b94e1e"],
   shadow:"0 2px 12px rgba(28,43,58,0.08), 0 1px 4px rgba(28,43,58,0.06)",
   shadowSm:"0 1px 4px rgba(28,43,58,0.07)",
 };
 
-// ─── UTILS ───────────────────────────────────────────────────────────────────
+// ─── UTILS Y COMPONENTES GLOBALES ────────────────────────────────────────────
 const N    = n => (n ?? 0).toLocaleString("es-MX");
 const P    = (n,t) => t ? ((n/t)*100).toFixed(1)+"%" : "–";
 const kN   = n => n>=1000 ? (n/1000).toFixed(1)+"k" : String(n);
@@ -286,6 +188,489 @@ const msToSec = (ms) => ms ? `${Math.round(ms/1000)}s` : "–";
 const MONOS  = "'DM Mono', monospace";
 const SERIFS = "'Source Serif 4', serif";
 
+const card = (T, extra={}) => ({
+  background:T.card, border:`1px solid ${T.bd1}`,
+  borderRadius:12, padding:"20px 22px",
+  boxShadow:T.shadow, ...extra,
+});
+
+const accentBar = c => ({
+  position:"absolute", top:0, left:0, right:0, height:3,
+  background:`linear-gradient(90deg, ${c}, ${c}88)`,
+});
+
+const TH = (T) => ({
+  padding:"11px 14px", fontFamily:MONOS,
+  fontSize:10, letterSpacing:".1em", fontWeight:500,
+  color:T.t3, background:T.row2, borderBottom:`2px solid ${T.bd1}`,
+  whiteSpace:"nowrap", textAlign:"left", textTransform:"uppercase",
+});
+
+const TD = (T, i) => ({
+  padding:"10px 14px", fontFamily:SERIFS,
+  fontSize:13, color:T.t2,
+  background:i%2===0 ? T.card : T.row2,
+  borderBottom:`1px solid ${T.bd1}`,
+});
+
+function Badge({label, color}) {
+  return (
+    <span style={{
+      fontFamily:MONOS, fontSize:9.5, fontWeight:500, letterSpacing:".07em",
+      color, background:`${color}1a`, border:`1px solid ${color}44`,
+      borderRadius:4, padding:"2px 9px",
+    }}>{label}</span>
+  );
+}
+
+function SecHead({title, sub, T}) {
+  return (
+    <div style={{marginBottom:22}}>
+      <div style={{display:"flex", alignItems:"center", gap:12, marginBottom:sub?6:0}}>
+        <div style={{width:28, height:28, borderRadius:7, background:`${T.terrac}18`, border:`1.5px solid ${T.terrac}44`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0}}>
+          <div style={{width:10, height:10, background:T.terrac, borderRadius:2, transform:"rotate(45deg)"}}/>
+        </div>
+        <span style={{fontFamily:SERIFS, fontSize:20, fontWeight:700, color:T.t1, letterSpacing:"-.015em"}}>{title}</span>
+      </div>
+      {sub&&<div style={{fontFamily:MONOS, fontSize:10, color:T.t4, marginLeft:40}}>{sub}</div>}
+    </div>
+  );
+}
+
+const SEARCH_MODES = [
+  { id:"expediente", label:"Expediente Catastral",  ph:"Ej: 28002280012 o 58 44 002 009" },
+  { id:"correo",     label:"Correo electrónico",  ph:"Ej: solicitante@gmail.com"        },
+  { id:"nombre",     label:"Nombre del solicitante",ph:"Ej: García Silva"                },
+  { id:"folio",      label:"Folio IRCNL",         ph:"Ej: F-2026-004521"                },
+  { id:"id",         label:"ID HubSpot (ticket)",   ph:"Ej: 42580559456"                  },
+  { id:"curp",       label:"CURP",                  ph:"Ej: GARC850412HNLR..."            },
+];
+
+
+// ══════════════════════════════════════════════════════════════════════════
+// TAB BÚSQUEDA — Componente Aislado (Arquitectura Refactorizada)
+// ══════════════════════════════════════════════════════════════════════════
+function TabBusqueda({ T, dark }) {
+  const [searchMode, setSearchMode] = useState("expediente");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchDateMode, setSearchDateMode] = useState("all");
+  const [searchFrom, setSearchFrom] = useState("");
+  const [searchTo, setSearchTo] = useState("");
+  const [searchDay, setSearchDay] = useState("");
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchResults, setSearchResults] = useState(null);
+  const [selectedTicket, setSelectedTicket] = useState(null);
+
+  const curMode = SEARCH_MODES.find(m=>m.id===searchMode);
+
+  const ejecutarBusqueda = async () => {
+    if (!searchQuery.trim()) return;
+    setSearchLoading(true);
+    setSelectedTicket(null);
+    setSearchResults(null);
+
+    try {
+      const token = localStorage.getItem('token') || '';
+      const url = new URL(window.location.origin + '/api/tickets');
+      url.searchParams.append('campo', searchMode);
+      url.searchParams.append('q', searchQuery);
+      
+      if (searchDateMode === 'range' && searchFrom && searchTo) {
+        url.searchParams.append('from', searchFrom);
+        url.searchParams.append('to', searchTo);
+      } else if (searchDateMode === 'day' && searchDay) {
+        url.searchParams.append('day', searchDay);
+      }
+
+      const response = await fetch(url.toString(), {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      const data = await response.json();
+      setSearchResults(data.tickets || data || []);
+    } catch (err) {
+      console.error("Error al buscar tickets:", err);
+      setSearchResults([]); 
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  // Ticket seleccionado — vista detalle completa
+  if (selectedTicket) {
+    const t = selectedTicket;
+    const stageInfo = STAGES_MAP[t.hs_pipeline_stage] || {label:"Desconocido", color:T.t4};
+    const stageColor = dark ? (STAGE_COLORS_DARK[t.hs_pipeline_stage]||T.t4) : stageInfo.color;
+    const agenteNombre = AGENTES[t.hubspot_owner_id] || `Agente ID ${t.hubspot_owner_id}`;
+    const tipoColor = t.tipo_tramite==="certificaciones"?T.blue:t.tipo_tramite==="generales"?T.green:T.amber;
+
+    return (
+      <div>
+        <button onClick={()=>setSelectedTicket(null)} style={{
+          display:"flex", alignItems:"center", gap:8, marginBottom:22,
+          background:"transparent", border:`1px solid ${T.bd2}`, borderRadius:8,
+          padding:"8px 16px", cursor:"pointer", color:T.t2,
+          fontFamily:MONOS, fontSize:11, fontWeight:600, transition:"all .15s",
+        }}
+        onMouseEnter={e=>{e.currentTarget.style.background=T.row2;e.currentTarget.style.borderColor=T.t3}}
+        onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.borderColor=T.bd2}}>
+          ← Volver a resultados
+        </button>
+
+        <div style={{...card(T), position:"relative", overflow:"hidden", marginBottom:18, borderLeft:`4px solid ${stageColor}`}}>
+          <div style={{display:"flex", justifyContent:"space-between", alignItems:"flex-start", flexWrap:"wrap", gap:16}}>
+            <div>
+              <div style={{display:"flex", alignItems:"center", gap:10, marginBottom:8, flexWrap:"wrap"}}>
+                <Badge label={stageInfo.label} color={stageColor}/>
+                <Badge label={t.tipo_tramite} color={tipoColor}/>
+                {t.es_masiva && <Badge label="MASIVO" color={T.gold}/>}
+              </div>
+              <div style={{fontFamily:SERIFS, fontSize:22, fontWeight:700, color:T.t1, lineHeight:1.2, marginBottom:4}}>
+                {t.tramite_solicitado1}
+              </div>
+              <div style={{fontFamily:MONOS, fontSize:10.5, color:T.t4}}>
+                HubSpot ID: {t.id} · {t.tiempos} · {t.nombredia}
+              </div>
+            </div>
+            <div style={{display:"flex", gap:8, flexWrap:"wrap"}}>
+              <a href={`https://app.hubspot.com/contacts/21443315/record/0-5/${t.id}`}
+                 target="_blank" rel="noopener noreferrer"
+                 style={{fontFamily:MONOS, fontSize:10, color:T.blue, background:T.bluePl, border:`1px solid ${T.blue}44`, borderRadius:7, padding:"7px 14px", textDecoration:"none", fontWeight:600}}>
+                Ver en HubSpot ↗
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:16, marginBottom:16}} className="g2">
+          {/* Solicitante */}
+          <div style={{...card(T), position:"relative", overflow:"hidden"}}>
+            <div style={accentBar(T.blue)}/>
+            <div style={{fontFamily:SERIFS, fontSize:15, fontWeight:700, color:T.t1, marginBottom:16}}>👤 Datos del Solicitante</div>
+            {[
+              ["Nombre completo",      t.nombre_persona_tramite || "–"],
+              ["Correo electrónico",   t.correo_solicitante || "–"],
+              ["CURP",                 t.curp || "No proporcionado"],
+              ["Expediente catastral", t.expediente_catastral || "–"],
+              ["Municipio (clave)",    t.expediente_municipio || "–"],
+              ["Folio IRCNL",          t.folio || "No asignado"],
+            ].map(([lbl,val])=>(
+              <div key={lbl} style={{display:"flex", justifyContent:"space-between", padding:"8px 0", borderBottom:`1px solid ${T.bd1}`}}>
+                <span style={{fontFamily:MONOS, fontSize:10.5, color:T.t3, fontWeight:500}}>{lbl}</span>
+                <span style={{fontFamily:MONOS, fontSize:11, color:T.t1, fontWeight:600, textAlign:"right", maxWidth:"55%", wordBreak:"break-all"}}>{val}</span>
+              </div>
+            ))}
+            {t.content && (
+              <div style={{marginTop:12, padding:"10px 12px", background:T.row2, borderRadius:8, border:`1px solid ${T.bd1}`}}>
+                <div style={{fontFamily:MONOS, fontSize:9.5, color:T.t4, marginBottom:4, letterSpacing:".08em"}}>DESCRIPCIÓN DEL SOLICITANTE</div>
+                <div style={{fontFamily:SERIFS, fontSize:12.5, color:T.t2, lineHeight:1.6}}>{t.content}</div>
+              </div>
+            )}
+          </div>
+
+          {/* Trámite */}
+          <div style={{...card(T), position:"relative", overflow:"hidden"}}>
+            <div style={accentBar(tipoColor)}/>
+            <div style={{fontFamily:SERIFS, fontSize:15, fontWeight:700, color:T.t1, marginBottom:16}}>📋 Datos del Trámite</div>
+            {[
+              ["Tipo de trámite",      t.tipo_tramite],
+              ["Trámite solicitado",   t.tramite_solicitado1],
+              ["Etapa actual",         stageInfo.label],
+              ["Agente responsable",   agenteNombre],
+              ["ID Team HubSpot",      t.hubspot_team_id || "–"],
+              ["Trámite masivo",       t.es_masiva ? "Sí" : "No"],
+              ["Fecha recepción",      fts(t.createdate)],
+              ["Asignado en",          fts(t.hubspot_owner_assigneddate)],
+              ["Fecha cierre",         t.closed_date ? fts(t.closed_date) : "En proceso"],
+              ["Día de la semana",     t.nombredia || "–"],
+            ].map(([lbl,val])=>(
+              <div key={lbl} style={{display:"flex", justifyContent:"space-between", padding:"8px 0", borderBottom:`1px solid ${T.bd1}`}}>
+                <span style={{fontFamily:MONOS, fontSize:10.5, color:T.t3, fontWeight:500}}>{lbl}</span>
+                <span style={{fontFamily:MONOS, fontSize:11, color: lbl==="Etapa actual"?stageColor:T.t1, fontWeight:600, textAlign:"right", maxWidth:"55%"}}>{val}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Métricas de tiempo */}
+        <div style={{...card(T), position:"relative", overflow:"hidden", marginBottom:16}}>
+          <div style={accentBar(T.green)}/>
+          <div style={{fontFamily:SERIFS, fontSize:15, fontWeight:700, color:T.t1, marginBottom:16}}>⏱ Métricas de Tiempo</div>
+          <div style={{display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12}} className="g4">
+            {[
+              ["Tiempo total de cierre", msToHM(t.time_to_close), T.green, "time_to_close"],
+              ["Primera respuesta",      msToHM(t.time_to_first_agent_reply), T.blue, "time_to_first_agent_reply"],
+              ["Asignación a agente",    msToSec(t.hs_time_to_first_rep_assignment), T.teal, "hs_time_to_first_rep_assignment"],
+              ["Interacciones del agente", t.hs_num_times_contacted||0, T.amber, "hs_num_times_contacted"],
+              ["Notas y actividades",    t.num_notes||0, T.slate, "num_notes"],
+              ["Último msg ciudadano",   fts(t.last_reply_date), T.terrac, "last_reply_date"],
+            ].map(([lbl,val,c,campo])=>(
+              <div key={lbl} style={{background:T.row2, borderRadius:9, padding:"12px 14px", border:`1px solid ${T.bd1}`, borderTop:`2px solid ${c}`}}>
+                <div style={{fontFamily:SERIFS, fontSize:18, fontWeight:700, color:c, lineHeight:1, marginBottom:6}}>{val}</div>
+                <div style={{fontFamily:MONOS, fontSize:10, color:T.t2, fontWeight:500, marginBottom:3}}>{lbl}</div>
+                <div style={{fontFamily:MONOS, fontSize:8.5, color:T.t4}}>{campo}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Timeline por etapa */}
+        {t.timeline && t.timeline.length > 0 && (
+          <div style={{...card(T), position:"relative", overflow:"hidden", marginBottom:16}}>
+            <div style={accentBar(T.terrac)}/>
+            <div style={{fontFamily:SERIFS, fontSize:15, fontWeight:700, color:T.t1, marginBottom:18}}>🔄 Tiempo por Etapa</div>
+            <div style={{display:"flex", flexDirection:"column", gap:0}}>
+              {t.timeline.map((step, i) => {
+                const isLast = i === t.timeline.length - 1;
+                const stepStage = Object.values(STAGES_MAP).find(s=>s.label===step.etapa);
+                const stepColor = stepStage?.color || T.t4;
+                const c = dark ? (Object.entries(STAGE_COLORS_DARK).find(([,v])=>STAGES_MAP[Object.keys(STAGES_MAP).find(k=>STAGES_MAP[k].label===step.etapa)])?.[1]||T.t4) : stepColor;
+                return (
+                  <div key={i} style={{display:"flex", gap:16, paddingBottom:isLast?0:20}}>
+                    <div style={{display:"flex", flexDirection:"column", alignItems:"center", flexShrink:0, width:28}}>
+                      <div style={{width:14, height:14, borderRadius:"50%", background:c, border:`3px solid ${T.panel}`, boxShadow:`0 0 0 2px ${c}`, flexShrink:0}}/>
+                      {!isLast && <div style={{width:2, flex:1, background:`linear-gradient(${c}88, ${T.bd1})`, marginTop:4}}/>}
+                    </div>
+                    <div style={{flex:1, paddingBottom:isLast?0:4}}>
+                      <div style={{display:"flex", justifyContent:"space-between", alignItems:"flex-start", flexWrap:"wrap", gap:8}}>
+                        <div>
+                          <span style={{fontFamily:MONOS, fontSize:11, fontWeight:700, color:c, letterSpacing:".04em"}}>{step.etapa.toUpperCase()}</span>
+                          <div style={{fontFamily:MONOS, fontSize:10, color:T.t4, marginTop:3}}>
+                            Entrada: {fts(step.entrada)}
+                            {step.salida && <span> · Salida: {fts(step.salida)}</span>}
+                          </div>
+                        </div>
+                        <div style={{background:T.row2, border:`1px solid ${T.bd1}`, borderRadius:7, padding:"5px 12px", textAlign:"right"}}>
+                          <span style={{fontFamily:SERIFS, fontSize:16, fontWeight:700, color:step.duracion_min!=null?c:T.t4}}>
+                            {step.duracion_min!=null ? `${step.duracion_min} min` : "En curso"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Interacciones */}
+        {t.interacciones && t.interacciones.length > 0 && (
+          <div style={{...card(T), position:"relative", overflow:"hidden", marginBottom:16}}>
+            <div style={accentBar(T.slate)}/>
+            <div style={{fontFamily:SERIFS, fontSize:15, fontWeight:700, color:T.t1, marginBottom:18}}>
+              💬 Interacciones — {t.interacciones.length} evento{t.interacciones.length!==1?"s":""}
+            </div>
+            <div style={{display:"flex", flexDirection:"column", gap:10}}>
+              {t.interacciones.map((inter,i)=>{
+                const isCiudadano = inter.agente==="Ciudadano" || inter.agente==="Sistema";
+                const interColor = inter.tipo==="Cierre"?T.green:inter.tipo==="Asignación"?T.teal:inter.tipo==="Primera respuesta"?T.blue:isCiudadano?T.amber:T.slate;
+                return (
+                  <div key={i} style={{display:"flex", gap:12, alignItems:"flex-start"}}>
+                    <div style={{width:36, height:36, borderRadius:9, background:`${interColor}18`, border:`1.5px solid ${interColor}44`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, fontSize:16}}>
+                      {inter.tipo==="Cierre"?"✅":inter.tipo==="Asignación"?"👤":inter.tipo==="Primera respuesta"?"💬":inter.tipo==="Mensaje ciudadano"?"🙋":inter.tipo==="Nota interna"?"📝":"•"}
+                    </div>
+                    <div style={{flex:1, background:T.row2, borderRadius:9, padding:"10px 14px", border:`1px solid ${T.bd1}`}}>
+                      <div style={{display:"flex", justifyContent:"space-between", alignItems:"flex-start", flexWrap:"wrap", gap:4, marginBottom:5}}>
+                        <div style={{display:"flex", alignItems:"center", gap:8}}>
+                          <Badge label={inter.tipo} color={interColor}/>
+                          <span style={{fontFamily:MONOS, fontSize:10.5, color:T.t2, fontWeight:600}}>{inter.agente}</span>
+                        </div>
+                        <span style={{fontFamily:MONOS, fontSize:10, color:T.t4}}>{fts(inter.fecha)}</span>
+                      </div>
+                      <div style={{fontFamily:SERIFS, fontSize:13, color:T.t2, lineHeight:1.5}}>{inter.nota}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Documentos */}
+        {(t.solicitud || t.ine_ticket) && (
+          <div style={{...card(T), position:"relative", overflow:"hidden"}}>
+            <div style={accentBar(T.amber)}/>
+            <div style={{fontFamily:SERIFS, fontSize:15, fontWeight:700, color:T.t1, marginBottom:14}}>📎 Documentos Adjuntos</div>
+            <div style={{display:"flex", gap:10, flexWrap:"wrap"}}>
+              {t.solicitud && (
+                <div style={{display:"flex", alignItems:"center", gap:10, background:T.row2, border:`1px solid ${T.bd1}`, borderRadius:9, padding:"10px 16px"}}>
+                  <span style={{fontSize:20}}>📄</span>
+                  <div>
+                    <div style={{fontFamily:MONOS, fontSize:10.5, color:T.t2, fontWeight:600}}>Solicitud</div>
+                    <div style={{fontFamily:MONOS, fontSize:9.5, color:T.t4}}>URL firmada (expira 1-24h)</div>
+                  </div>
+                </div>
+              )}
+              {t.ine_ticket && (
+                <div style={{display:"flex", alignItems:"center", gap:10, background:T.row2, border:`1px solid ${T.bd1}`, borderRadius:9, padding:"10px 16px"}}>
+                  <span style={{fontSize:20}}>🪪</span>
+                  <div>
+                    <div style={{fontFamily:MONOS, fontSize:10.5, color:T.t2, fontWeight:600}}>INE/Identificación</div>
+                    <div style={{fontFamily:MONOS, fontSize:9.5, color:T.t4}}>URL firmada (expira 1-24h)</div>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div style={{marginTop:12, fontFamily:MONOS, fontSize:9.5, color:T.amber}}>
+              ⚠ Las URLs de documentos son temporales y expiran entre 1 y 24 horas. Para visualizarlos, acceder desde HubSpot o desde el worker en producción.
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Vista de búsqueda
+  return (
+    <div>
+      <SecHead title="Búsqueda de Trámites" sub="Consulta individual conectada al API real del clúster de base de datos" T={T}/>
+
+      <div style={{...card(T), position:"relative", overflow:"hidden", marginBottom:20, borderLeft:`4px solid ${T.terrac}`}}>
+        <div style={{fontFamily:MONOS, fontSize:9.5, fontWeight:700, color:T.t3, letterSpacing:".12em", textTransform:"uppercase", marginBottom:16}}>
+          Criterio de búsqueda
+        </div>
+        <div style={{display:"flex", gap:8, flexWrap:"wrap", marginBottom:18}}>
+          {SEARCH_MODES.map(m=>(
+            <button key={m.id} onClick={()=>setSearchMode(m.id)} style={{
+              background:searchMode===m.id ? T.terrac : "transparent",
+              color:searchMode===m.id ? "#fff" : T.t2,
+              border:`1.5px solid ${searchMode===m.id ? T.terrac : T.bd2}`,
+              borderRadius:8, padding:"7px 14px", cursor:"pointer",
+              fontFamily:MONOS, fontSize:11, fontWeight:500, transition:"all .15s",
+            }}>{m.label}</button>
+          ))}
+        </div>
+        <div style={{display:"flex", gap:10, alignItems:"center", flexWrap:"wrap", marginBottom:18}}>
+          <div style={{flex:1, minWidth:240, position:"relative"}}>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e=>setSearchQuery(e.target.value)}
+              onKeyDown={e=>e.key==="Enter"&&ejecutarBusqueda()}
+              placeholder={curMode?.ph||"Escribir valor de búsqueda..."}
+              style={{
+                width:"100%", fontFamily:MONOS, fontSize:12,
+                padding:"10px 14px", borderRadius:9,
+                border:`1.5px solid ${T.bd2}`, color:T.t1, background:T.panel,
+                outline:"none", transition:"border-color .15s",
+              }}
+              onFocus={e=>e.target.style.borderColor=T.terrac}
+              onBlur={e=>e.target.style.borderColor=T.bd2}
+            />
+          </div>
+          <button onClick={ejecutarBusqueda} disabled={!searchQuery.trim()||searchLoading} style={{
+            background:(!searchQuery.trim()||searchLoading) ? T.t4 : T.terrac,
+            color:"#fff", border:"none", borderRadius:9,
+            padding:"10px 24px", fontFamily:MONOS, fontSize:11, fontWeight:700,
+            cursor:(!searchQuery.trim()||searchLoading)?"not-allowed":"pointer",
+            display:"flex", alignItems:"center", gap:8, flexShrink:0,
+            transition:"all .15s", boxShadow:`0 2px 8px ${T.terrac}44`,
+          }}>
+            {searchLoading ? "Buscando…" : "⊕ Buscar"}
+          </button>
+        </div>
+      </div>
+
+      <div style={{background:T.slatePl||T.row2, border:`1px solid ${T.slate}44`, borderRadius:9, padding:"10px 14px", marginBottom:20, display:"flex", gap:10, alignItems:"flex-start"}}>
+        <span style={{fontSize:16, flexShrink:0}}>⚙️</span>
+        <div style={{fontFamily:MONOS, fontSize:10, color:T.t3, lineHeight:1.7}}>
+          <strong style={{color:T.slate}}>Conexión en Vivo Activa:</strong>{" "}
+          Las búsquedas ahora apuntan directamente al clúster PostgreSQL de la Fase 1.
+        </div>
+      </div>
+
+      {searchResults===null && !searchLoading && (
+        <div style={{...card(T), textAlign:"center", padding:"50px 30px"}}>
+          <div style={{fontSize:52, marginBottom:16, opacity:.4}}>⊕</div>
+          <div style={{fontFamily:SERIFS, fontSize:18, fontWeight:700, color:T.t1, marginBottom:8}}>
+            Ingresa un criterio de búsqueda
+          </div>
+          <div style={{fontFamily:MONOS, fontSize:11, color:T.t4, lineHeight:1.8}}>
+            Busca por expediente catastral, correo electrónico, nombre del solicitante,<br/>
+            folio IRCNL, ID de ticket HubSpot o CURP.
+          </div>
+        </div>
+      )}
+
+      {searchLoading && (
+        <div style={{...card(T), textAlign:"center", padding:"40px 30px"}}>
+          <div style={{fontFamily:MONOS, fontSize:12, color:T.t3, letterSpacing:".08em"}}>Consultando API...</div>
+        </div>
+      )}
+
+      {searchResults!==null && !searchLoading && (
+        <div>
+          <div style={{fontFamily:MONOS, fontSize:10.5, color:T.t3, marginBottom:14, display:"flex", justifyContent:"space-between", alignItems:"center"}}>
+            <span>{searchResults.length} resultado{searchResults.length!==1?"s":""} para "{searchQuery}"</span>
+            {searchResults.length>0 && <span style={{color:T.t4}}>Clic en una fila para ver el detalle completo</span>}
+          </div>
+
+          {searchResults.length===0 ? (
+            <div style={{...card(T), textAlign:"center", padding:"40px 30px"}}>
+              <div style={{fontSize:40, marginBottom:12, opacity:.35}}>○</div>
+              <div style={{fontFamily:SERIFS, fontSize:16, fontWeight:700, color:T.t1, marginBottom:6}}>Sin resultados</div>
+              <div style={{fontFamily:MONOS, fontSize:11, color:T.t4}}>
+                No se encontraron trámites para "{searchQuery}" en {curMode?.label}.
+              </div>
+            </div>
+          ) : (
+            <div style={{...card(T), padding:0, overflow:"hidden"}}>
+              <div style={{overflowX:"auto"}}>
+                <table>
+                  <thead>
+                    <tr>
+                      {["ID Ticket","Expediente","Solicitante","Trámite","Tipo","Etapa","Agente","Recepción","Cierre","Tiempo"].map(h=>(
+                        <th key={h} style={TH(T)}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {searchResults.map((r,i)=>{
+                      const si = STAGES_MAP[r.hs_pipeline_stage]||{label:"–",color:T.t4};
+                      const sc = dark ? (STAGE_COLORS_DARK[r.hs_pipeline_stage]||T.t4) : si.color;
+                      const tc = r.tipo_tramite==="certificaciones"?T.blue:r.tipo_tramite==="generales"?T.green:T.amber;
+                      return (
+                        <tr key={r.id} onClick={()=>setSelectedTicket(r)} style={{cursor:"pointer"}}
+                          onMouseEnter={e=>e.currentTarget.style.background=dark?"#1e3050":"#eef3fc"}
+                          onMouseLeave={e=>e.currentTarget.style.background=i%2===0?T.card:T.row2}>
+                          <td style={{...TD(T, i), fontFamily:MONOS, fontSize:10, color:T.blue, fontWeight:600}}>{r.id}</td>
+                          <td style={{...TD(T, i), fontFamily:MONOS, fontSize:11}}>{r.expediente_catastral||"–"}</td>
+                          <td style={{...TD(T, i)}}>
+                            <div style={{fontFamily:SERIFS, fontSize:12.5, fontWeight:600, color:T.t1}}>{r.nombre_persona_tramite}</div>
+                            <div style={{fontFamily:MONOS, fontSize:10, color:T.t4}}>{r.correo_solicitante}</div>
+                          </td>
+                          <td style={{...TD(T, i), maxWidth:200}}>
+                            <div style={{fontFamily:SERIFS, fontSize:12, color:T.t2}}>{r.tramite_solicitado1}</div>
+                          </td>
+                          <td style={TD(T, i)}><Badge label={r.tipo_tramite} color={tc}/></td>
+                          <td style={TD(T, i)}>
+                            <span style={{fontFamily:MONOS, fontSize:10, fontWeight:700, color:sc,
+                              background:`${sc}18`, border:`1px solid ${sc}44`, borderRadius:4, padding:"2px 8px"}}>
+                              {si.label}
+                            </span>
+                          </td>
+                          <td style={{...TD(T, i), fontFamily:MONOS, fontSize:10.5, color:T.t2}}>{AGENTES[r.hubspot_owner_id]||r.hubspot_owner_id}</td>
+                          <td style={{...TD(T, i), fontFamily:MONOS, fontSize:10, color:T.t3}}>{fDate(r.createdate)}</td>
+                          <td style={{...TD(T, i), fontFamily:MONOS, fontSize:10, color:r.closed_date?T.green:T.amber}}>
+                            {r.closed_date ? fDate(r.closed_date) : "En proceso"}
+                          </td>
+                          <td style={{...TD(T, i), fontFamily:MONOS, fontSize:11, color:T.green, fontWeight:700}}>{msToHM(r.time_to_close)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── MAIN COMPONENT ──────────────────────────────────────────────────────────
 export default function AtlasDashboard() {
   const [dark,      setDark]      = useState(false);
@@ -298,81 +683,20 @@ export default function AtlasDashboard() {
   const [filtTipo,  setFiltTipo]  = useState("todos");
   const [navOpen,   setNavOpen]   = useState(true);
 
-  // Búsqueda
-  const [searchMode,    setSearchMode]    = useState("expediente");
-  const [searchQuery,   setSearchQuery]   = useState("");
-  const [searchDateMode,setSearchDateMode]= useState("all");
-  const [searchFrom,    setSearchFrom]    = useState("");
-  const [searchTo,      setSearchTo]      = useState("");
-  const [searchDay,     setSearchDay]     = useState("");
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [searchResults, setSearchResults] = useState(null);
-  const [selectedTicket,setSelectedTicket]= useState(null);
-
   const T  = buildTheme(dark);
   const pd = PERIODOS.find(p => p.id === periodo) || PERIODOS[0];
-
-  // Calcula el label del período activo para mostrar en topbar
   const periodoLabel = periodo === "custom"
     ? `${fDate(fromD+"T00:00:00")} → ${fDate(toD+"T00:00:00")}`
     : pd.sub;
 
   const tramFilt = TRAMITES_TOP.filter(t => filtTipo==="todos" || t.tipo===filtTipo);
 
-  // ── Aplicar rango personalizado ──────────────────────────────────────────
   const aplicarRango = useCallback(() => {
     setFromD(pendingFrom);
     setToD(pendingTo);
   }, [pendingFrom, pendingTo]);
 
-  // ── Búsqueda (simulada — en producción hace fetch a /api/buscar?campo=...&q=...) ──
-  const ejecutarBusqueda = useCallback(() => {
-    if (!searchQuery.trim()) return;
-    setSearchLoading(true);
-    setSelectedTicket(null);
-    setSearchResults(null);
-    setTimeout(() => {
-      const q = searchQuery.toLowerCase();
-      const res = DEMO_RESULTADOS.filter(r => {
-        if (searchMode==="expediente") return (r.expediente_catastral||"").toLowerCase().includes(q);
-        if (searchMode==="correo")     return (r.correo_solicitante||"").toLowerCase().includes(q);
-        if (searchMode==="nombre")     return (r.nombre_persona_tramite||"").toLowerCase().includes(q);
-        if (searchMode==="folio")      return (r.folio||"").toLowerCase().includes(q);
-        if (searchMode==="id")         return (r.id||"").toLowerCase().includes(q);
-        if (searchMode==="curp")       return (r.curp||"").toLowerCase().includes(q);
-        return false;
-      });
-      setSearchResults(res);
-      setSearchLoading(false);
-    }, 600);
-  }, [searchQuery, searchMode]);
-
-  // ── Estilos base ──────────────────────────────────────────────────────────
-  const card = (extra={}) => ({
-    background:T.card, border:`1px solid ${T.bd1}`,
-    borderRadius:12, padding:"20px 22px",
-    boxShadow:T.shadow, ...extra,
-  });
-
-  const accentBar = c => ({
-    position:"absolute", top:0, left:0, right:0, height:3,
-    background:`linear-gradient(90deg, ${c}, ${c}88)`,
-  });
-
-  const TH = {
-    padding:"11px 14px", fontFamily:MONOS,
-    fontSize:10, letterSpacing:".1em", fontWeight:500,
-    color:T.t3, background:T.row2, borderBottom:`2px solid ${T.bd1}`,
-    whiteSpace:"nowrap", textAlign:"left", textTransform:"uppercase",
-  };
-  const TD = i => ({
-    padding:"10px 14px", fontFamily:SERIFS,
-    fontSize:13, color:T.t2,
-    background:i%2===0 ? T.card : T.row2,
-    borderBottom:`1px solid ${T.bd1}`,
-  });
-
-  // ── Sub-componentes ───────────────────────────────────────────────────────
+  // Sub-componentes que dependen del estado del Dashboard
   const ChartTip = ({active, payload, label}) => {
     if (!active||!payload?.length) return null;
     return (
@@ -387,19 +711,9 @@ export default function AtlasDashboard() {
     );
   };
 
-  function Badge({label, color}) {
-    return (
-      <span style={{
-        fontFamily:MONOS, fontSize:9.5, fontWeight:500, letterSpacing:".07em",
-        color, background:`${color}1a`, border:`1px solid ${color}44`,
-        borderRadius:4, padding:"2px 9px",
-      }}>{label}</span>
-    );
-  }
-
   function KPICard({value, label, sub, color, icon, delta}) {
     return (
-      <div style={{...card(), position:"relative", overflow:"hidden"}}>
+      <div style={{...card(T), position:"relative", overflow:"hidden"}}>
         <div style={accentBar(color)}/>
         <div style={{display:"flex", justifyContent:"space-between", alignItems:"flex-start", paddingTop:4}}>
           <div style={{minWidth:0}}>
@@ -419,24 +733,9 @@ export default function AtlasDashboard() {
     );
   }
 
-  function SecHead({title, sub}) {
-    return (
-      <div style={{marginBottom:22}}>
-        <div style={{display:"flex", alignItems:"center", gap:12, marginBottom:sub?6:0}}>
-          <div style={{width:28, height:28, borderRadius:7, background:`${T.terrac}18`, border:`1.5px solid ${T.terrac}44`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0}}>
-            <div style={{width:10, height:10, background:T.terrac, borderRadius:2, transform:"rotate(45deg)"}}/>
-          </div>
-          <span style={{fontFamily:SERIFS, fontSize:20, fontWeight:700, color:T.t1, letterSpacing:"-.015em"}}>{title}</span>
-        </div>
-        {sub&&<div style={{fontFamily:MONOS, fontSize:10, color:T.t4, marginLeft:40}}>{sub}</div>}
-      </div>
-    );
-  }
-
-  // ── Filtro de período (con rango personalizado funcional) ─────────────────
   function PeriodBar() {
     return (
-      <div style={{...card(), padding:"14px 18px", marginBottom:24, borderLeft:`4px solid ${T.slate}`}}>
+      <div style={{...card(T), padding:"14px 18px", marginBottom:24, borderLeft:`4px solid ${T.slate}`}}>
         <div style={{fontFamily:MONOS, fontSize:9.5, fontWeight:600, color:T.t3, letterSpacing:".12em", textTransform:"uppercase", marginBottom:12}}>
           Período · Pipeline Catastro — datos reales: 13 Feb 2023 – 27 Feb 2026
         </div>
@@ -493,461 +792,6 @@ export default function AtlasDashboard() {
     );
   }
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // TAB BÚSQUEDA — Componente completo
-  // ══════════════════════════════════════════════════════════════════════════
-  const SEARCH_MODES = [
-    { id:"expediente", label:"Expediente Catastral",  ph:"Ej: 28002280012 o 58 44 002 009" },
-    { id:"correo",     label:"Correo electrónico",    ph:"Ej: solicitante@gmail.com"        },
-    { id:"nombre",     label:"Nombre del solicitante",ph:"Ej: García Silva"                 },
-    { id:"folio",      label:"Folio IRCNL",           ph:"Ej: F-2026-004521"                },
-    { id:"id",         label:"ID HubSpot (ticket)",   ph:"Ej: 42580559456"                  },
-    { id:"curp",       label:"CURP",                  ph:"Ej: GARC850412HNLR..."            },
-  ];
-
-  function TabBusqueda() {
-    const curMode = SEARCH_MODES.find(m=>m.id===searchMode);
-
-    // Ticket seleccionado — vista detalle completa
-    if (selectedTicket) {
-      const t = selectedTicket;
-      const stageInfo = STAGES_MAP[t.hs_pipeline_stage] || {label:"Desconocido", color:T.t4};
-      const stageColor = dark ? (STAGE_COLORS_DARK[t.hs_pipeline_stage]||T.t4) : stageInfo.color;
-      const agenteNombre = AGENTES[t.hubspot_owner_id] || `Agente ID ${t.hubspot_owner_id}`;
-      const tipoColor = t.tipo_tramite==="certificaciones"?T.blue:t.tipo_tramite==="generales"?T.green:T.amber;
-
-      return (
-        <div>
-          {/* Volver */}
-          <button onClick={()=>setSelectedTicket(null)} style={{
-            display:"flex", alignItems:"center", gap:8, marginBottom:22,
-            background:"transparent", border:`1px solid ${T.bd2}`, borderRadius:8,
-            padding:"8px 16px", cursor:"pointer", color:T.t2,
-            fontFamily:MONOS, fontSize:11, fontWeight:600, transition:"all .15s",
-          }}
-          onMouseEnter={e=>{e.currentTarget.style.background=T.row2;e.currentTarget.style.borderColor=T.t3}}
-          onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.borderColor=T.bd2}}>
-            ← Volver a resultados
-          </button>
-
-          {/* Cabecera del ticket */}
-          <div style={{...card(), position:"relative", overflow:"hidden", marginBottom:18, borderLeft:`4px solid ${stageColor}`}}>
-            <div style={{display:"flex", justifyContent:"space-between", alignItems:"flex-start", flexWrap:"wrap", gap:16}}>
-              <div>
-                <div style={{display:"flex", alignItems:"center", gap:10, marginBottom:8, flexWrap:"wrap"}}>
-                  <Badge label={stageInfo.label} color={stageColor}/>
-                  <Badge label={t.tipo_tramite} color={tipoColor}/>
-                  {t.es_masiva && <Badge label="MASIVO" color={T.gold}/>}
-                </div>
-                <div style={{fontFamily:SERIFS, fontSize:22, fontWeight:700, color:T.t1, lineHeight:1.2, marginBottom:4}}>
-                  {t.tramite_solicitado1}
-                </div>
-                <div style={{fontFamily:MONOS, fontSize:10.5, color:T.t4}}>
-                  HubSpot ID: {t.id} · {t.tiempos} · {t.nombredia}
-                </div>
-              </div>
-              <div style={{display:"flex", gap:8, flexWrap:"wrap"}}>
-                <a href={`https://app.hubspot.com/contacts/21443315/record/0-5/${t.id}`}
-                   target="_blank" rel="noopener noreferrer"
-                   style={{fontFamily:MONOS, fontSize:10, color:T.blue, background:T.bluePl, border:`1px solid ${T.blue}44`, borderRadius:7, padding:"7px 14px", textDecoration:"none", fontWeight:600}}>
-                  Ver en HubSpot ↗
-                </a>
-              </div>
-            </div>
-          </div>
-
-          {/* Grid: datos del solicitante + datos del trámite */}
-          <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:16, marginBottom:16}} className="g2">
-
-            {/* Solicitante */}
-            <div style={{...card(), position:"relative", overflow:"hidden"}}>
-              <div style={accentBar(T.blue)}/>
-              <div style={{fontFamily:SERIFS, fontSize:15, fontWeight:700, color:T.t1, marginBottom:16}}>👤 Datos del Solicitante</div>
-              {[
-                ["Nombre completo",       t.nombre_persona_tramite || "–"],
-                ["Correo electrónico",    t.correo_solicitante || "–"],
-                ["CURP",                  t.curp || "No proporcionado"],
-                ["Expediente catastral",  t.expediente_catastral || "–"],
-                ["Municipio (clave)",     t.expediente_municipio || "–"],
-                ["Folio IRCNL",           t.folio || "No asignado"],
-              ].map(([lbl,val])=>(
-                <div key={lbl} style={{display:"flex", justifyContent:"space-between", padding:"8px 0", borderBottom:`1px solid ${T.bd1}`}}>
-                  <span style={{fontFamily:MONOS, fontSize:10.5, color:T.t3, fontWeight:500}}>{lbl}</span>
-                  <span style={{fontFamily:MONOS, fontSize:11, color:T.t1, fontWeight:600, textAlign:"right", maxWidth:"55%", wordBreak:"break-all"}}>{val}</span>
-                </div>
-              ))}
-              {t.content && (
-                <div style={{marginTop:12, padding:"10px 12px", background:T.row2, borderRadius:8, border:`1px solid ${T.bd1}`}}>
-                  <div style={{fontFamily:MONOS, fontSize:9.5, color:T.t4, marginBottom:4, letterSpacing:".08em"}}>DESCRIPCIÓN DEL SOLICITANTE</div>
-                  <div style={{fontFamily:SERIFS, fontSize:12.5, color:T.t2, lineHeight:1.6}}>{t.content}</div>
-                </div>
-              )}
-            </div>
-
-            {/* Trámite */}
-            <div style={{...card(), position:"relative", overflow:"hidden"}}>
-              <div style={accentBar(tipoColor)}/>
-              <div style={{fontFamily:SERIFS, fontSize:15, fontWeight:700, color:T.t1, marginBottom:16}}>📋 Datos del Trámite</div>
-              {[
-                ["Tipo de trámite",      t.tipo_tramite],
-                ["Trámite solicitado",   t.tramite_solicitado1],
-                ["Etapa actual",         stageInfo.label],
-                ["Agente responsable",   agenteNombre],
-                ["ID Team HubSpot",      t.hubspot_team_id || "–"],
-                ["Trámite masivo",       t.es_masiva ? "Sí" : "No"],
-                ["Fecha recepción",      fts(t.createdate)],
-                ["Asignado en",          fts(t.hubspot_owner_assigneddate)],
-                ["Fecha cierre",         t.closed_date ? fts(t.closed_date) : "En proceso"],
-                ["Día de la semana",     t.nombredia || "–"],
-              ].map(([lbl,val])=>(
-                <div key={lbl} style={{display:"flex", justifyContent:"space-between", padding:"8px 0", borderBottom:`1px solid ${T.bd1}`}}>
-                  <span style={{fontFamily:MONOS, fontSize:10.5, color:T.t3, fontWeight:500}}>{lbl}</span>
-                  <span style={{fontFamily:MONOS, fontSize:11, color: lbl==="Etapa actual"?stageColor:T.t1, fontWeight:600, textAlign:"right", maxWidth:"55%"}}>{val}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Métricas de tiempo */}
-          <div style={{...card(), position:"relative", overflow:"hidden", marginBottom:16}}>
-            <div style={accentBar(T.green)}/>
-            <div style={{fontFamily:SERIFS, fontSize:15, fontWeight:700, color:T.t1, marginBottom:16}}>⏱ Métricas de Tiempo</div>
-            <div style={{display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12}} className="g4">
-              {[
-                ["Tiempo total de cierre", msToHM(t.time_to_close), T.green, "time_to_close"],
-                ["Primera respuesta",      msToHM(t.time_to_first_agent_reply), T.blue, "time_to_first_agent_reply"],
-                ["Asignación a agente",    msToSec(t.hs_time_to_first_rep_assignment), T.teal, "hs_time_to_first_rep_assignment"],
-                ["Interacciones del agente", t.hs_num_times_contacted||0, T.amber, "hs_num_times_contacted"],
-                ["Notas y actividades",    t.num_notes||0, T.slate, "num_notes"],
-                ["Último msg ciudadano",   fts(t.last_reply_date), T.terrac, "last_reply_date"],
-              ].map(([lbl,val,c,campo])=>(
-                <div key={lbl} style={{background:T.row2, borderRadius:9, padding:"12px 14px", border:`1px solid ${T.bd1}`, borderTop:`2px solid ${c}`}}>
-                  <div style={{fontFamily:SERIFS, fontSize:18, fontWeight:700, color:c, lineHeight:1, marginBottom:6}}>{val}</div>
-                  <div style={{fontFamily:MONOS, fontSize:10, color:T.t2, fontWeight:500, marginBottom:3}}>{lbl}</div>
-                  <div style={{fontFamily:MONOS, fontSize:8.5, color:T.t4}}>{campo}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Timeline por etapa */}
-          {t.timeline && t.timeline.length > 0 && (
-            <div style={{...card(), position:"relative", overflow:"hidden", marginBottom:16}}>
-              <div style={accentBar(T.terrac)}/>
-              <div style={{fontFamily:SERIFS, fontSize:15, fontWeight:700, color:T.t1, marginBottom:18}}>🔄 Tiempo por Etapa</div>
-              <div style={{display:"flex", flexDirection:"column", gap:0}}>
-                {t.timeline.map((step, i) => {
-                  const isLast = i === t.timeline.length - 1;
-                  const stepStage = Object.values(STAGES_MAP).find(s=>s.label===step.etapa);
-                  const stepColor = stepStage?.color || T.t4;
-                  const c = dark ? (Object.entries(STAGE_COLORS_DARK).find(([,v])=>STAGES_MAP[Object.keys(STAGES_MAP).find(k=>STAGES_MAP[k].label===step.etapa)])?.[1]||T.t4) : stepColor;
-                  return (
-                    <div key={i} style={{display:"flex", gap:16, paddingBottom:isLast?0:20}}>
-                      {/* Línea vertical */}
-                      <div style={{display:"flex", flexDirection:"column", alignItems:"center", flexShrink:0, width:28}}>
-                        <div style={{width:14, height:14, borderRadius:"50%", background:c, border:`3px solid ${T.panel}`, boxShadow:`0 0 0 2px ${c}`, flexShrink:0}}/>
-                        {!isLast && <div style={{width:2, flex:1, background:`linear-gradient(${c}88, ${T.bd1})`, marginTop:4}}/>}
-                      </div>
-                      {/* Contenido */}
-                      <div style={{flex:1, paddingBottom:isLast?0:4}}>
-                        <div style={{display:"flex", justifyContent:"space-between", alignItems:"flex-start", flexWrap:"wrap", gap:8}}>
-                          <div>
-                            <span style={{fontFamily:MONOS, fontSize:11, fontWeight:700, color:c, letterSpacing:".04em"}}>{step.etapa.toUpperCase()}</span>
-                            <div style={{fontFamily:MONOS, fontSize:10, color:T.t4, marginTop:3}}>
-                              Entrada: {fts(step.entrada)}
-                              {step.salida && <span> · Salida: {fts(step.salida)}</span>}
-                            </div>
-                          </div>
-                          <div style={{background:T.row2, border:`1px solid ${T.bd1}`, borderRadius:7, padding:"5px 12px", textAlign:"right"}}>
-                            <span style={{fontFamily:SERIFS, fontSize:16, fontWeight:700, color:step.duracion_min!=null?c:T.t4}}>
-                              {step.duracion_min!=null ? `${step.duracion_min} min` : "En curso"}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Interacciones por agente */}
-          {t.interacciones && t.interacciones.length > 0 && (
-            <div style={{...card(), position:"relative", overflow:"hidden", marginBottom:16}}>
-              <div style={accentBar(T.slate)}/>
-              <div style={{fontFamily:SERIFS, fontSize:15, fontWeight:700, color:T.t1, marginBottom:18}}>
-                💬 Interacciones — {t.interacciones.length} evento{t.interacciones.length!==1?"s":""}
-              </div>
-              <div style={{display:"flex", flexDirection:"column", gap:10}}>
-                {t.interacciones.map((inter,i)=>{
-                  const isCiudadano = inter.agente==="Ciudadano" || inter.agente==="Sistema";
-                  const interColor = inter.tipo==="Cierre"?T.green:inter.tipo==="Asignación"?T.teal:inter.tipo==="Primera respuesta"?T.blue:isCiudadano?T.amber:T.slate;
-                  return (
-                    <div key={i} style={{display:"flex", gap:12, alignItems:"flex-start"}}>
-                      <div style={{width:36, height:36, borderRadius:9, background:`${interColor}18`, border:`1.5px solid ${interColor}44`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, fontSize:16}}>
-                        {inter.tipo==="Cierre"?"✅":inter.tipo==="Asignación"?"👤":inter.tipo==="Primera respuesta"?"💬":inter.tipo==="Mensaje ciudadano"?"🙋":inter.tipo==="Nota interna"?"📝":"•"}
-                      </div>
-                      <div style={{flex:1, background:T.row2, borderRadius:9, padding:"10px 14px", border:`1px solid ${T.bd1}`}}>
-                        <div style={{display:"flex", justifyContent:"space-between", alignItems:"flex-start", flexWrap:"wrap", gap:4, marginBottom:5}}>
-                          <div style={{display:"flex", alignItems:"center", gap:8}}>
-                            <Badge label={inter.tipo} color={interColor}/>
-                            <span style={{fontFamily:MONOS, fontSize:10.5, color:T.t2, fontWeight:600}}>{inter.agente}</span>
-                          </div>
-                          <span style={{fontFamily:MONOS, fontSize:10, color:T.t4}}>{fts(inter.fecha)}</span>
-                        </div>
-                        <div style={{fontFamily:SERIFS, fontSize:13, color:T.t2, lineHeight:1.5}}>{inter.nota}</div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Documentos adjuntos */}
-          {(t.solicitud || t.ine_ticket) && (
-            <div style={{...card(), position:"relative", overflow:"hidden"}}>
-              <div style={accentBar(T.amber)}/>
-              <div style={{fontFamily:SERIFS, fontSize:15, fontWeight:700, color:T.t1, marginBottom:14}}>📎 Documentos Adjuntos</div>
-              <div style={{display:"flex", gap:10, flexWrap:"wrap"}}>
-                {t.solicitud && (
-                  <div style={{display:"flex", alignItems:"center", gap:10, background:T.row2, border:`1px solid ${T.bd1}`, borderRadius:9, padding:"10px 16px"}}>
-                    <span style={{fontSize:20}}>📄</span>
-                    <div>
-                      <div style={{fontFamily:MONOS, fontSize:10.5, color:T.t2, fontWeight:600}}>Solicitud</div>
-                      <div style={{fontFamily:MONOS, fontSize:9.5, color:T.t4}}>URL firmada (expira 1-24h)</div>
-                    </div>
-                  </div>
-                )}
-                {t.ine_ticket && (
-                  <div style={{display:"flex", alignItems:"center", gap:10, background:T.row2, border:`1px solid ${T.bd1}`, borderRadius:9, padding:"10px 16px"}}>
-                    <span style={{fontSize:20}}>🪪</span>
-                    <div>
-                      <div style={{fontFamily:MONOS, fontSize:10.5, color:T.t2, fontWeight:600}}>INE/Identificación</div>
-                      <div style={{fontFamily:MONOS, fontSize:9.5, color:T.t4}}>URL firmada (expira 1-24h)</div>
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div style={{marginTop:12, fontFamily:MONOS, fontSize:9.5, color:T.amber}}>
-                ⚠ Las URLs de documentos son temporales y expiran entre 1 y 24 horas. Para visualizarlos, acceder desde HubSpot o desde el worker en producción.
-              </div>
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    // ── Vista de búsqueda / resultados ────────────────────────────────────
-    return (
-      <div>
-        <SecHead title="Búsqueda de Trámites" sub="Consulta individual por expediente, correo, nombre, folio, ID o CURP · Datos desde BD local (caché sincronizado c/hora)"/>
-
-        {/* Panel de búsqueda */}
-        <div style={{...card(), position:"relative", overflow:"hidden", marginBottom:20, borderLeft:`4px solid ${T.terrac}`}}>
-          <div style={{fontFamily:MONOS, fontSize:9.5, fontWeight:700, color:T.t3, letterSpacing:".12em", textTransform:"uppercase", marginBottom:16}}>
-            Criterio de búsqueda
-          </div>
-
-          {/* Selector de modo */}
-          <div style={{display:"flex", gap:8, flexWrap:"wrap", marginBottom:18}}>
-            {SEARCH_MODES.map(m=>(
-              <button key={m.id} onClick={()=>setSearchMode(m.id)} style={{
-                background:searchMode===m.id ? T.terrac : "transparent",
-                color:searchMode===m.id ? "#fff" : T.t2,
-                border:`1.5px solid ${searchMode===m.id ? T.terrac : T.bd2}`,
-                borderRadius:8, padding:"7px 14px", cursor:"pointer",
-                fontFamily:MONOS, fontSize:11, fontWeight:500, transition:"all .15s",
-              }}>{m.label}</button>
-            ))}
-          </div>
-
-          {/* Input de búsqueda */}
-          <div style={{display:"flex", gap:10, alignItems:"center", flexWrap:"wrap", marginBottom:18}}>
-            <div style={{flex:1, minWidth:240, position:"relative"}}>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={e=>setSearchQuery(e.target.value)}
-                onKeyDown={e=>e.key==="Enter"&&ejecutarBusqueda()}
-                placeholder={curMode?.ph||"Escribir valor de búsqueda..."}
-                style={{
-                  width:"100%", fontFamily:MONOS, fontSize:12,
-                  padding:"10px 14px", borderRadius:9,
-                  border:`1.5px solid ${T.bd2}`, color:T.t1, background:T.panel,
-                  outline:"none", transition:"border-color .15s",
-                }}
-                onFocus={e=>e.target.style.borderColor=T.terrac}
-                onBlur={e=>e.target.style.borderColor=T.bd2}
-              />
-            </div>
-            <button onClick={ejecutarBusqueda} disabled={!searchQuery.trim()||searchLoading} style={{
-              background:(!searchQuery.trim()||searchLoading) ? T.t4 : T.terrac,
-              color:"#fff", border:"none", borderRadius:9,
-              padding:"10px 24px", fontFamily:MONOS, fontSize:11, fontWeight:700,
-              cursor:(!searchQuery.trim()||searchLoading)?"not-allowed":"pointer",
-              display:"flex", alignItems:"center", gap:8, flexShrink:0,
-              transition:"all .15s", boxShadow:`0 2px 8px ${T.terrac}44`,
-            }}>
-              {searchLoading ? "Buscando…" : "⊕ Buscar"}
-            </button>
-          </div>
-
-          {/* Filtro de fecha para búsqueda */}
-          <div style={{borderTop:`1px solid ${T.bd1}`, paddingTop:16}}>
-            <div style={{fontFamily:MONOS, fontSize:9.5, color:T.t3, fontWeight:600, letterSpacing:".1em", marginBottom:12, textTransform:"uppercase"}}>
-              Rango de fecha (opcional)
-            </div>
-            <div style={{display:"flex", gap:8, flexWrap:"wrap", alignItems:"flex-end"}}>
-              {[
-                {id:"all",     label:"Cualquier fecha"},
-                {id:"today",   label:"Hoy"},
-                {id:"week",    label:"Esta semana"},
-                {id:"month",   label:"Este mes"},
-                {id:"range",   label:"Rango personalizado"},
-                {id:"day",     label:"Día específico"},
-              ].map(m=>(
-                <button key={m.id} onClick={()=>setSearchDateMode(m.id)} style={{
-                  background:searchDateMode===m.id ? T.slate : "transparent",
-                  color:searchDateMode===m.id ? "#fff" : T.t3,
-                  border:`1px solid ${searchDateMode===m.id ? T.slate : T.bd2}`,
-                  borderRadius:7, padding:"6px 12px", cursor:"pointer",
-                  fontFamily:MONOS, fontSize:10, fontWeight:500, transition:"all .15s",
-                }}>{m.label}</button>
-              ))}
-            </div>
-            {searchDateMode==="range" && (
-              <div style={{display:"flex", gap:10, marginTop:12, flexWrap:"wrap", alignItems:"flex-end"}}>
-                <label style={{display:"flex", flexDirection:"column", gap:4}}>
-                  <span style={{fontFamily:MONOS, fontSize:9, color:T.t3, fontWeight:600}}>DESDE</span>
-                  <input type="date" value={searchFrom} onChange={e=>setSearchFrom(e.target.value)}
-                    style={{fontFamily:MONOS, fontSize:11, padding:"7px 12px", borderRadius:7, border:`1.5px solid ${T.bd2}`, color:T.t1, background:T.panel}}/>
-                </label>
-                <label style={{display:"flex", flexDirection:"column", gap:4}}>
-                  <span style={{fontFamily:MONOS, fontSize:9, color:T.t3, fontWeight:600}}>HASTA</span>
-                  <input type="date" value={searchTo} onChange={e=>setSearchTo(e.target.value)}
-                    style={{fontFamily:MONOS, fontSize:11, padding:"7px 12px", borderRadius:7, border:`1.5px solid ${T.bd2}`, color:T.t1, background:T.panel}}/>
-                </label>
-              </div>
-            )}
-            {searchDateMode==="day" && (
-              <div style={{marginTop:12}}>
-                <label style={{display:"flex", flexDirection:"column", gap:4}}>
-                  <span style={{fontFamily:MONOS, fontSize:9, color:T.t3, fontWeight:600}}>DÍA ESPECÍFICO</span>
-                  <input type="date" value={searchDay} onChange={e=>setSearchDay(e.target.value)}
-                    style={{fontFamily:MONOS, fontSize:11, padding:"7px 12px", borderRadius:7, border:`1.5px solid ${T.bd2}`, color:T.t1, background:T.panel, width:"fit-content"}}/>
-                </label>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Nota de implementación técnica */}
-        <div style={{background:T.slatePl||T.row2, border:`1px solid ${T.slate}44`, borderRadius:9, padding:"10px 14px", marginBottom:20, display:"flex", gap:10, alignItems:"flex-start"}}>
-          <span style={{fontSize:16, flexShrink:0}}>⚙️</span>
-          <div style={{fontFamily:MONOS, fontSize:10, color:T.t3, lineHeight:1.7}}>
-            <strong style={{color:T.slate}}>Arquitectura de datos:</strong>{" "}
-            Búsqueda en BD local PostgreSQL (caché). Sync cada hora 07:00–17:00 CST (L-V) · Cache clear diario 03:00 CST.
-            Si el trámite no está en caché → fallback directo al API HubSpot.
-          </div>
-        </div>
-
-        {/* Estado inicial — sin búsqueda */}
-        {searchResults===null && !searchLoading && (
-          <div style={{...card(), textAlign:"center", padding:"50px 30px"}}>
-            <div style={{fontSize:52, marginBottom:16, opacity:.4}}>⊕</div>
-            <div style={{fontFamily:SERIFS, fontSize:18, fontWeight:700, color:T.t1, marginBottom:8}}>
-              Ingresa un criterio de búsqueda
-            </div>
-            <div style={{fontFamily:MONOS, fontSize:11, color:T.t4, lineHeight:1.8}}>
-              Busca por expediente catastral, correo electrónico, nombre del solicitante,<br/>
-              folio IRCNL, ID de ticket HubSpot o CURP.<br/>
-              Puedes combinar con un rango de fechas o un día específico.
-            </div>
-          </div>
-        )}
-
-        {/* Loading */}
-        {searchLoading && (
-          <div style={{...card(), textAlign:"center", padding:"40px 30px"}}>
-            <div style={{fontFamily:MONOS, fontSize:12, color:T.t3, letterSpacing:".08em"}}>Consultando base de datos…</div>
-          </div>
-        )}
-
-        {/* Resultados */}
-        {searchResults!==null && !searchLoading && (
-          <div>
-            <div style={{fontFamily:MONOS, fontSize:10.5, color:T.t3, marginBottom:14, display:"flex", justifyContent:"space-between", alignItems:"center"}}>
-              <span>{searchResults.length} resultado{searchResults.length!==1?"s":""} para "{searchQuery}"</span>
-              {searchResults.length>0 && <span style={{color:T.t4}}>Clic en una fila para ver el detalle completo</span>}
-            </div>
-
-            {searchResults.length===0 ? (
-              <div style={{...card(), textAlign:"center", padding:"40px 30px"}}>
-                <div style={{fontSize:40, marginBottom:12, opacity:.35}}>○</div>
-                <div style={{fontFamily:SERIFS, fontSize:16, fontWeight:700, color:T.t1, marginBottom:6}}>Sin resultados</div>
-                <div style={{fontFamily:MONOS, fontSize:11, color:T.t4}}>
-                  No se encontraron trámites para "{searchQuery}" en {curMode?.label}.<br/>
-                  Verifica el valor o prueba con otro criterio de búsqueda.
-                </div>
-              </div>
-            ) : (
-              <div style={{...card(), padding:0, overflow:"hidden"}}>
-                <div style={{overflowX:"auto"}}>
-                  <table>
-                    <thead>
-                      <tr>
-                        {["ID Ticket","Expediente","Solicitante","Trámite","Tipo","Etapa","Agente","Recepción","Cierre","Tiempo"].map(h=>(
-                          <th key={h} style={TH}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {searchResults.map((r,i)=>{
-                        const si = STAGES_MAP[r.hs_pipeline_stage]||{label:"–",color:T.t4};
-                        const sc = dark ? (STAGE_COLORS_DARK[r.hs_pipeline_stage]||T.t4) : si.color;
-                        const tc = r.tipo_tramite==="certificaciones"?T.blue:r.tipo_tramite==="generales"?T.green:T.amber;
-                        return (
-                          <tr key={r.id} onClick={()=>setSelectedTicket(r)} style={{cursor:"pointer"}}
-                            onMouseEnter={e=>e.currentTarget.style.background=dark?"#1e3050":"#eef3fc"}
-                            onMouseLeave={e=>e.currentTarget.style.background=i%2===0?T.card:T.row2}>
-                            <td style={{...TD(i), fontFamily:MONOS, fontSize:10, color:T.blue, fontWeight:600}}>{r.id}</td>
-                            <td style={{...TD(i), fontFamily:MONOS, fontSize:11}}>{r.expediente_catastral||"–"}</td>
-                            <td style={{...TD(i)}}>
-                              <div style={{fontFamily:SERIFS, fontSize:12.5, fontWeight:600, color:T.t1}}>{r.nombre_persona_tramite}</div>
-                              <div style={{fontFamily:MONOS, fontSize:10, color:T.t4}}>{r.correo_solicitante}</div>
-                            </td>
-                            <td style={{...TD(i), maxWidth:200}}>
-                              <div style={{fontFamily:SERIFS, fontSize:12, color:T.t2}}>{r.tramite_solicitado1}</div>
-                            </td>
-                            <td style={TD(i)}><Badge label={r.tipo_tramite} color={tc}/></td>
-                            <td style={TD(i)}>
-                              <span style={{fontFamily:MONOS, fontSize:10, fontWeight:700, color:sc,
-                                background:`${sc}18`, border:`1px solid ${sc}44`, borderRadius:4, padding:"2px 8px"}}>
-                                {si.label}
-                              </span>
-                            </td>
-                            <td style={{...TD(i), fontFamily:MONOS, fontSize:10.5, color:T.t2}}>{AGENTES[r.hubspot_owner_id]||r.hubspot_owner_id}</td>
-                            <td style={{...TD(i), fontFamily:MONOS, fontSize:10, color:T.t3}}>{fDate(r.createdate)}</td>
-                            <td style={{...TD(i), fontFamily:MONOS, fontSize:10, color:r.closed_date?T.green:T.amber}}>
-                              {r.closed_date ? fDate(r.closed_date) : "En proceso"}
-                            </td>
-                            <td style={{...TD(i), fontFamily:MONOS, fontSize:11, color:T.green, fontWeight:700}}>{msToHM(r.time_to_close)}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    );
-  }
-
   // ─── SIDEBAR + TOPBAR + CONTENIDO ────────────────────────────────────────
   return (
     <div style={{display:"flex", minHeight:"100vh", background:T.appBg, fontFamily:SERIFS}}>
@@ -979,7 +823,6 @@ export default function AtlasDashboard() {
         boxShadow:dark?"3px 0 24px rgba(0,0,0,.7)":"3px 0 20px rgba(28,43,58,.2)",
         flexShrink:0, overflow:"hidden", zIndex:200,
       }}>
-        {/* Logo */}
         <div style={{padding:"24px 16px 20px", borderBottom:`1px solid ${T.sidebd}`}}>
           <div style={{display:"flex", alignItems:"center", gap:12}}>
             <div style={{width:36, height:36, borderRadius:8, flexShrink:0, background:`linear-gradient(135deg, ${T.terrac}, ${T.blue})`, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:MONOS, fontSize:11, fontWeight:600, color:"#fff"}}>IR</div>
@@ -990,7 +833,6 @@ export default function AtlasDashboard() {
           </div>
         </div>
 
-        {/* Nav */}
         <nav style={{flex:1, padding:"10px 0"}}>
           {TABS.map(t=>{
             const active=tab===t.id;
@@ -1016,7 +858,6 @@ export default function AtlasDashboard() {
           })}
         </nav>
 
-        {/* Bottom */}
         <div style={{borderTop:`1px solid ${T.sidebd}`, padding:"8px 0"}}>
           <button onClick={()=>setDark(d=>!d)} style={{
             display:"flex", alignItems:"center", gap:12, width:"100%",
@@ -1041,7 +882,6 @@ export default function AtlasDashboard() {
 
       {/* MAIN */}
       <div className="main" style={{flex:1, display:"flex", flexDirection:"column", minWidth:0, overflow:"hidden"}}>
-        {/* Topbar */}
         <header style={{height:58, background:T.topbar, borderBottom:`1px solid ${T.bd1}`, padding:"0 24px", display:"flex", alignItems:"center", justifyContent:"space-between", gap:16, flexShrink:0, boxShadow:T.shadowSm}}>
           <div style={{display:"flex", alignItems:"center", gap:14}}>
             <button onClick={()=>setNavOpen(o=>!o)} style={{background:"none", border:"none", fontSize:18, color:T.t3}}>☰</button>
@@ -1061,30 +901,26 @@ export default function AtlasDashboard() {
           </div>
         </header>
 
-        {/* Scroll area */}
         <main style={{flex:1, overflow:"auto", padding:"22px 24px"}}>
-
-          {/* Period filter (solo en tabs que no son búsqueda) */}
           {tab!=="busqueda" && <PeriodBar/>}
 
-          {/* ══ OVERVIEW ══ */}
           {tab==="overview"&&(
             <div className="emerge">
-              <SecHead title="Resumen Ejecutivo" sub={`Pipeline Catastro ${PIPELINE_ID} · ${periodoLabel}`}/>
+              <SecHead title="Resumen Ejecutivo" sub={`Pipeline Catastro ${PIPELINE_ID} · ${periodoLabel}`} T={T}/>
               <div className="g4" style={{display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:14, marginBottom:20}}>
-                <KPICard value={N(pd.total)} label="Total Trámites"  sub={periodoLabel}                          color={T.blue}   icon="📋" delta={5.7}/>
-                <KPICard value={N(pd.cer)}   label="Cerrados"         sub={P(pd.cer,pd.total)+" tasa cierre"}    color={T.green}  icon="✅" delta={8.3}/>
-                <KPICard value={N(pd.rech)}  label="Rechazados"       sub={P(pd.rech,pd.total)+" tasa rechazo"}  color={T.red}    icon="❌" delta={-1.2}/>
-                <KPICard value={N(pd.enAten)}label="En Atención"      sub="Recib.+Asig.+Proceso"                color={T.amber}  icon="🔄" delta={-2.1}/>
+                <KPICard value={N(pd.total)} label="Total Trámites"  sub={periodoLabel}                          color={T.blue}  icon="📋" delta={5.7}/>
+                <KPICard value={N(pd.cer)}   label="Cerrados"        sub={P(pd.cer,pd.total)+" tasa cierre"}    color={T.green} icon="✅" delta={8.3}/>
+                <KPICard value={N(pd.rech)}  label="Rechazados"      sub={P(pd.rech,pd.total)+" tasa rechazo"}  color={T.red}   icon="❌" delta={-1.2}/>
+                <KPICard value={N(pd.enAten)}label="En Atención"     sub="Recib.+Asig.+Proceso"                 color={T.amber} icon="🔄" delta={-2.1}/>
               </div>
               <div className="g4" style={{display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:14, marginBottom:24}}>
-                <KPICard value="< 8 hrs"  label="Tiempo Prom. Cierre"   sub="time_to_close · Meta 2.2 POA"          color={T.green}  icon="⏱"/>
-                <KPICard value="< 2 min"  label="Asignación Agente"     sub="hs_time_to_first_rep_assignment"        color={T.teal}   icon="👤"/>
-                <KPICard value="~1.2 hrs" label="Primera Respuesta"     sub="time_to_first_agent_reply"              color={T.slate}  icon="💬"/>
-                <KPICard value="16.0%"    label="Tasa Rechazo"          sub="stage=Rechazado · Meta 1.3 POA"         color={T.red}    icon="⚠️"/>
+                <KPICard value="< 8 hrs"  label="Tiempo Prom. Cierre"   sub="time_to_close · Meta 2.2 POA"          color={T.green} icon="⏱"/>
+                <KPICard value="< 2 min"  label="Asignación Agente"     sub="hs_time_to_first_rep_assignment"        color={T.teal}  icon="👤"/>
+                <KPICard value="~1.2 hrs" label="Primera Respuesta"     sub="time_to_first_agent_reply"              color={T.slate} icon="💬"/>
+                <KPICard value="16.0%"    label="Tasa Rechazo"          sub="stage=Rechazado · Meta 1.3 POA"         color={T.red}   icon="⚠️"/>
               </div>
               <div className="gchart" style={{display:"grid", gridTemplateColumns:"1.6fr 1fr", gap:18, marginBottom:20}}>
-                <div style={{...card(), position:"relative", overflow:"hidden"}}>
+                <div style={{...card(T), position:"relative", overflow:"hidden"}}>
                   <div style={accentBar(T.blue)}/>
                   <div style={{fontFamily:SERIFS, fontSize:15, fontWeight:700, color:T.t1, marginBottom:16}}>Tendencia Mensual — Sep 2025 / Feb 2026</div>
                   <ResponsiveContainer width="100%" height={215}>
@@ -1107,7 +943,7 @@ export default function AtlasDashboard() {
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
-                <div style={{...card(), position:"relative", overflow:"hidden"}}>
+                <div style={{...card(T), position:"relative", overflow:"hidden"}}>
                   <div style={accentBar(T.terrac)}/>
                   <div style={{fontFamily:SERIFS, fontSize:15, fontWeight:700, color:T.t1, marginBottom:14}}>Tipo de Trámite</div>
                   <ResponsiveContainer width="100%" height={145}>
@@ -1129,7 +965,7 @@ export default function AtlasDashboard() {
                   ))}
                 </div>
               </div>
-              <div style={{...card(), position:"relative", overflow:"hidden"}}>
+              <div style={{...card(T), position:"relative", overflow:"hidden"}}>
                 <div style={accentBar(T.slate)}/>
                 <div style={{fontFamily:SERIFS, fontSize:15, fontWeight:700, color:T.t1, marginBottom:4}}>Volumen Anual Real — Verificado en API HubSpot</div>
                 <div style={{fontFamily:MONOS, fontSize:9.5, color:T.t4, marginBottom:16}}>2023: 1,303 · 2024: 28,935 · 2025: 84,428 · 2026 (ene-feb): 15,973</div>
@@ -1148,14 +984,13 @@ export default function AtlasDashboard() {
             </div>
           )}
 
-          {/* ══ ETAPAS ══ */}
           {tab==="etapas"&&(
             <div className="emerge">
-              <SecHead title="Etapas del Pipeline Catastro" sub="7 etapas · hs_pipeline_stage · nombres reales HubSpot"/>
+              <SecHead title="Etapas del Pipeline Catastro" sub="7 etapas · hs_pipeline_stage · nombres reales HubSpot" T={T}/>
               <div className="g4" style={{display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:20}}>
                 {STAGES.map((s,i)=>(<KPICard key={s.id} value={N(s.count)} label={s.label} sub={s.pct+"% del pipeline"} color={T.sc[i]} icon="·"/>))}
               </div>
-              <div style={{...card(), position:"relative", overflow:"hidden"}}>
+              <div style={{...card(T), position:"relative", overflow:"hidden"}}>
                 <div style={accentBar(T.terrac)}/>
                 <div style={{fontFamily:SERIFS, fontSize:15, fontWeight:700, color:T.t1, marginBottom:20}}>Distribución Visual por Etapa</div>
                 {STAGES.map((s,i)=>(
@@ -1176,30 +1011,29 @@ export default function AtlasDashboard() {
             </div>
           )}
 
-          {/* ══ TRÁMITES ══ */}
           {tab==="tramites"&&(
             <div className="emerge">
-              <SecHead title="Trámites más Solicitados" sub="tramite_solicitado1 · clasificados por tipo_tramite"/>
+              <SecHead title="Trámites más Solicitados" sub="tramite_solicitado1 · clasificados por tipo_tramite" T={T}/>
               <div style={{display:"flex", gap:8, marginBottom:18, flexWrap:"wrap"}}>
                 {[["todos","Todos",T.t3,T.bd2],["certificaciones","Certificaciones",T.blue,T.blue],["generales","Generales",T.green,T.green],["inmobiliarios","Inmobiliarios",T.amber,T.amber]].map(([v,l,c,bc])=>(
                   <button key={v} onClick={()=>setFiltTipo(v)} style={{background:filtTipo===v?`${c}18`:"transparent", color:filtTipo===v?c:T.t3, border:`1px solid ${filtTipo===v?bc:T.bd1}`, borderRadius:7, padding:"7px 16px", fontFamily:MONOS, fontSize:11, fontWeight:500, transition:"all .15s"}}>{l}</button>
                 ))}
               </div>
-              <div style={{...card(), padding:0, overflow:"hidden"}}>
+              <div style={{...card(T), padding:0, overflow:"hidden"}}>
                 <div style={{overflowX:"auto"}}>
                   <table>
-                    <thead><tr>{["#","Trámite","Tipo","Tickets","% del tipo"].map(h=><th key={h} style={TH}>{h}</th>)}</tr></thead>
+                    <thead><tr>{["#","Trámite","Tipo","Tickets","% del tipo"].map(h=><th key={h} style={TH(T)}>{h}</th>)}</tr></thead>
                     <tbody>
                       {tramFilt.map((t,i)=>{
                         const tot=TRAMITES_TOP.filter(x=>x.tipo===t.tipo).reduce((a,x)=>a+x.count,0);
                         const c=t.tipo==="certificaciones"?T.blue:t.tipo==="generales"?T.green:T.amber;
                         return (
                           <tr key={i}>
-                            <td style={{...TD(i), fontFamily:MONOS, color:T.t4}}>{i+1}</td>
-                            <td style={{...TD(i), fontWeight:600}}>{t.nombre}</td>
-                            <td style={TD(i)}><Badge label={t.tipo==="certificaciones"?"Cert.":t.tipo==="generales"?"General":"Inmob."} color={c}/></td>
-                            <td style={{...TD(i), fontFamily:MONOS, color:c, fontWeight:600}}>{N(t.count)}</td>
-                            <td style={TD(i)}>
+                            <td style={{...TD(T, i), fontFamily:MONOS, color:T.t4}}>{i+1}</td>
+                            <td style={{...TD(T, i), fontWeight:600}}>{t.nombre}</td>
+                            <td style={TD(T, i)}><Badge label={t.tipo==="certificaciones"?"Cert.":t.tipo==="generales"?"General":"Inmob."} color={c}/></td>
+                            <td style={{...TD(T, i), fontFamily:MONOS, color:c, fontWeight:600}}>{N(t.count)}</td>
+                            <td style={TD(T, i)}>
                               <div style={{display:"flex", alignItems:"center", gap:10}}>
                                 <div style={{flex:1, height:5, background:T.row2, borderRadius:3, border:`1px solid ${T.bd1}`, overflow:"hidden"}}>
                                   <div style={{height:"100%", width:`${Math.max((t.count/tot)*100,2)}%`, background:c, borderRadius:3}}/>
@@ -1217,20 +1051,19 @@ export default function AtlasDashboard() {
             </div>
           )}
 
-          {/* ══ TIEMPOS ══ */}
           {tab==="tiempos"&&(
             <div className="emerge">
-              <SecHead title="Métricas de Tiempo & SLA" sub="Campos disponibles en API · Meta 2.2 POA 2026"/>
+              <SecHead title="Métricas de Tiempo & SLA" sub="Campos disponibles en API · Meta 2.2 POA 2026" T={T}/>
               <div className="g4" style={{display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:14, marginBottom:22}}>
-                <KPICard value="< 8 hrs"  label="Tiempo Prom. Cierre"  sub="time_to_close"                   color={T.green}  icon="⏱"/>
-                <KPICard value="< 2 min"  label="Asignación Agente"    sub="hs_time_to_first_rep_assignment" color={T.teal}   icon="👤"/>
-                <KPICard value="~1.2 hrs" label="Primera Respuesta"    sub="time_to_first_agent_reply"       color={T.blue}   icon="💬"/>
-                <KPICard value="65.1%"    label="Tasa de Cierre"       sub="Cerrados / Total pipeline"       color={T.slate}  icon="📊"/>
+                <KPICard value="< 8 hrs"  label="Tiempo Prom. Cierre"  sub="time_to_close"                 color={T.green} icon="⏱"/>
+                <KPICard value="< 2 min"  label="Asignación Agente"    sub="hs_time_to_first_rep_assignment" color={T.teal}  icon="👤"/>
+                <KPICard value="~1.2 hrs" label="Primera Respuesta"    sub="time_to_first_agent_reply"       color={T.blue}  icon="💬"/>
+                <KPICard value="65.1%"    label="Tasa de Cierre"       sub="Cerrados / Total pipeline"       color={T.slate} icon="📊"/>
               </div>
-              <div style={{...card(), padding:0, overflow:"hidden"}}>
+              <div style={{...card(T), padding:0, overflow:"hidden"}}>
                 <div style={{overflowX:"auto"}}>
                   <table>
-                    <thead><tr>{["Campo HubSpot","Descripción","Unidad","Uso en tablero","POA"].map(h=><th key={h} style={TH}>{h}</th>)}</tr></thead>
+                    <thead><tr>{["Campo HubSpot","Descripción","Unidad","Uso en tablero","POA"].map(h=><th key={h} style={TH(T)}>{h}</th>)}</tr></thead>
                     <tbody>
                       {[
                         ["time_to_close","Tiempo total creación → cierre","ms→h/d","KPI resolución","Meta 2.2"],
@@ -1245,11 +1078,11 @@ export default function AtlasDashboard() {
                         ["hubspot_owner_assigneddate","Fecha asignación al agente","timestamp","Tiempo desde asignación","—"],
                       ].map(([c,d,u,u2,poa],i)=>(
                         <tr key={i}>
-                          <td style={{...TD(i), fontFamily:MONOS, fontSize:10.5, color:T.blue, fontWeight:600}}>{c}</td>
-                          <td style={TD(i)}>{d}</td>
-                          <td style={{...TD(i), fontFamily:MONOS, fontSize:10, color:T.t4}}>{u}</td>
-                          <td style={{...TD(i), color:T.t3}}>{u2}</td>
-                          <td style={TD(i)}>{poa!=="—"?<Badge label={poa} color={T.green}/>:<span style={{color:T.t4}}>—</span>}</td>
+                          <td style={{...TD(T, i), fontFamily:MONOS, fontSize:10.5, color:T.blue, fontWeight:600}}>{c}</td>
+                          <td style={TD(T, i)}>{d}</td>
+                          <td style={{...TD(T, i), fontFamily:MONOS, fontSize:10, color:T.t4}}>{u}</td>
+                          <td style={{...TD(T, i), color:T.t3}}>{u2}</td>
+                          <td style={TD(T, i)}>{poa!=="—"?<Badge label={poa} color={T.green}/>:<span style={{color:T.t4}}>—</span>}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -1259,28 +1092,27 @@ export default function AtlasDashboard() {
             </div>
           )}
 
-          {/* ══ FORMULARIOS ══ */}
           {tab==="formularios"&&(
             <div className="emerge">
-              <SecHead title="Catálogo de Formularios (hs_form_id)" sub="21 formularios · 18 Mi Portal + 3 Sitio Web IRCNL"/>
+              <SecHead title="Catálogo de Formularios (hs_form_id)" sub="21 formularios · 18 Mi Portal + 3 Sitio Web IRCNL" T={T}/>
               <div className="g2" style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:22}}>
-                <KPICard value="18" label="Mi Portal" sub="miportal.ircnl.gob.mx" color={T.blue}   icon="🌐"/>
+                <KPICard value="18" label="Mi Portal" sub="miportal.ircnl.gob.mx" color={T.blue}  icon="🌐"/>
                 <KPICard value="3"  label="Sitio Web" sub="ircnl.gob.mx/tramites-catastrales/" color={T.teal} icon="🔗"/>
               </div>
-              <div style={{...card(), padding:0, overflow:"hidden"}}>
+              <div style={{...card(T), padding:0, overflow:"hidden"}}>
                 <div style={{overflowX:"auto"}}>
                   <table>
-                    <thead><tr>{["#","hs_form_id","Nombre del Formulario","Canal","Tickets"].map(h=><th key={h} style={TH}>{h}</th>)}</tr></thead>
+                    <thead><tr>{["#","hs_form_id","Nombre del Formulario","Canal","Tickets"].map(h=><th key={h} style={TH(T)}>{h}</th>)}</tr></thead>
                     <tbody>
                       {FORMS.map(([id,nombre,canal,count],i)=>{
                         const c=canal==="Mi Portal"?T.blue:T.teal;
                         return (
                           <tr key={i}>
-                            <td style={{...TD(i), fontFamily:MONOS, color:T.t4}}>{i+1}</td>
-                            <td style={{...TD(i), fontFamily:MONOS, fontSize:10, color:T.t4}}>{id}…</td>
-                            <td style={{...TD(i), fontWeight:600}}>{nombre}</td>
-                            <td style={TD(i)}><Badge label={canal} color={c}/></td>
-                            <td style={{...TD(i), fontFamily:MONOS, color:c, fontWeight:600}}>{N(count)}</td>
+                            <td style={{...TD(T, i), fontFamily:MONOS, color:T.t4}}>{i+1}</td>
+                            <td style={{...TD(T, i), fontFamily:MONOS, fontSize:10, color:T.t4}}>{id}…</td>
+                            <td style={{...TD(T, i), fontWeight:600}}>{nombre}</td>
+                            <td style={TD(T, i)}><Badge label={canal} color={c}/></td>
+                            <td style={{...TD(T, i), fontFamily:MONOS, color:c, fontWeight:600}}>{N(count)}</td>
                           </tr>
                         );
                       })}
@@ -1291,10 +1123,9 @@ export default function AtlasDashboard() {
             </div>
           )}
 
-          {/* ══ POA 2026 ══ */}
           {tab==="poa"&&(
             <div className="emerge">
-              <SecHead title="POA 2026 — Indicadores Estratégicos" sub="Programa Operativo Anual · IRCNL · Plan Estatal de Desarrollo NL"/>
+              <SecHead title="POA 2026 — Indicadores Estratégicos" sub="Programa Operativo Anual · IRCNL · Plan Estatal de Desarrollo NL" T={T}/>
               <div style={{background:T.amberPl, border:`1px solid ${T.amber}55`, borderRadius:12, padding:"14px 18px", marginBottom:22, display:"flex", gap:14}}>
                 <span style={{fontSize:20, flexShrink:0}}>ℹ️</span>
                 <div>
@@ -1311,7 +1142,7 @@ export default function AtlasDashboard() {
                   {n:"OE2",t:"Modernizar Gestión Catastral",c:T.terrac,m:["5% actualización fotografía aérea","−1 día tiempo promedio trámites","14 → 16 municipios en SGC"]},
                   {n:"OE3",t:"Transparencia y Rendición de Cuentas",c:T.slate,m:["100% indicadores publicados trimestralmente","Encuestas ciudadanas mensuales"]},
                 ].map(o=>(
-                  <div key={o.n} style={{...card(), position:"relative", overflow:"hidden"}}>
+                  <div key={o.n} style={{...card(T), position:"relative", overflow:"hidden"}}>
                     <div style={accentBar(o.c)}/>
                     <div style={{fontFamily:MONOS, fontSize:10, color:o.c, fontWeight:600, marginBottom:4, letterSpacing:".08em"}}>{o.n}</div>
                     <div style={{fontFamily:SERIFS, fontSize:14, fontWeight:700, color:T.t1, marginBottom:12}}>{o.t}</div>
@@ -1324,11 +1155,11 @@ export default function AtlasDashboard() {
                   </div>
                 ))}
               </div>
-              <SecHead title="Mapa Campo HubSpot → Indicador POA" sub="Reglas de negocio · Define qué campo del API alimenta cada meta del Programa Operativo"/>
-              <div style={{...card(), padding:0, overflow:"hidden"}}>
+              <SecHead title="Mapa Campo HubSpot → Indicador POA" sub="Reglas de negocio · Define qué campo del API alimenta cada meta del Programa Operativo" T={T}/>
+              <div style={{...card(T), padding:0, overflow:"hidden"}}>
                 <div style={{overflowX:"auto"}}>
                   <table>
-                    <thead><tr>{["Campo HubSpot","Indicador Medible","Meta POA","Frecuencia","Fuente"].map(h=><th key={h} style={TH}>{h}</th>)}</tr></thead>
+                    <thead><tr>{["Campo HubSpot","Indicador Medible","Meta POA","Frecuencia","Fuente"].map(h=><th key={h} style={TH(T)}>{h}</th>)}</tr></thead>
                     <tbody>
                       {[
                         ["time_to_close","Tiempo promedio cierre por trámite","Meta 2.2","Diaria","API Real"],
@@ -1342,11 +1173,11 @@ export default function AtlasDashboard() {
                         ["hs_form_id","Uso canales: Mi Portal vs Sitio Web","Meta 2.2.3","Mensual","API Real"],
                       ].map(([c,ind,meta,freq,src],i)=>(
                         <tr key={i}>
-                          <td style={{...TD(i), fontFamily:MONOS, fontSize:10.5, color:T.blue, fontWeight:600}}>{c}</td>
-                          <td style={TD(i)}>{ind}</td>
-                          <td style={TD(i)}><Badge label={meta} color={T.teal}/></td>
-                          <td style={{...TD(i), fontFamily:MONOS, fontSize:10, color:T.t4}}>{freq}</td>
-                          <td style={TD(i)}><Badge label={src} color={T.green}/></td>
+                          <td style={{...TD(T, i), fontFamily:MONOS, fontSize:10.5, color:T.blue, fontWeight:600}}>{c}</td>
+                          <td style={TD(T, i)}>{ind}</td>
+                          <td style={TD(T, i)}><Badge label={meta} color={T.teal}/></td>
+                          <td style={{...TD(T, i), fontFamily:MONOS, fontSize:10, color:T.t4}}>{freq}</td>
+                          <td style={TD(T, i)}><Badge label={src} color={T.green}/></td>
                         </tr>
                       ))}
                     </tbody>
@@ -1356,19 +1187,16 @@ export default function AtlasDashboard() {
             </div>
           )}
 
-          {/* ══ BÚSQUEDA ══ */}
           {tab==="busqueda"&&(
-            <div className="emerge"><TabBusqueda/></div>
+            <div className="emerge"><TabBusqueda T={T} dark={dark}/></div>
           )}
 
-          {/* ══ SINCRONIZACIÓN ══ */}
           {tab==="sincronizacion"&&(
             <div className="emerge"><TabSyncLog T={T} /></div>
           )}
 
         </main>
 
-        {/* Footer */}
         <footer style={{background:T.topbar, borderTop:`1px solid ${T.bd1}`, padding:"8px 24px", display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:8, flexShrink:0}}>
           <span style={{fontFamily:MONOS, fontSize:9.5, color:T.t4}}>
             IRCNL · Pipeline Catastro {PIPELINE_ID} · {N(TOTAL)} tickets · Feb 2023 – Feb 2026
