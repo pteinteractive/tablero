@@ -8,7 +8,7 @@ on:
 jobs:
   deploy-frontend:
     name: Desplegar Frontend (srv-cpan01)
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - name: Descargar código del repositorio
         uses: actions/checkout@v4
