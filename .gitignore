@@ -1,0 +1,29 @@
+# Credenciales — NUNCA subir a git
+.env
+*.env.local
+*.env.production
+
+# Dependencias
+node_modules/
+npm-debug.log*
+
+# Logs
+*.log
+logs/
+
+# Archivos temporales
+*.tmp
+/tmp/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Build
+dist/
+build/
+.cache/

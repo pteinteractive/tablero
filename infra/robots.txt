@@ -1,0 +1,19 @@
+User-agent: *
+Disallow: /dashboard/
+Disallow: /api/
+Disallow: /auth/
+
+User-agent: Googlebot
+Disallow: /
+
+User-agent: Bingbot
+Disallow: /
+
+User-agent: GPTBot
+Disallow: /
+
+User-agent: Claude-Web
+Disallow: /
+
+User-agent: CCBot
+Disallow: /
