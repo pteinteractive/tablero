@@ -22,11 +22,13 @@ jobs:
 
       - name: Desplegar Frontend (Hacia srv-cpan01)
         run: |
+          ssh -i ~/.ssh/github_key ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_WEB_IP }} "sudo /bin/chown -R ${{ secrets.SERVER_USER }}:${{ secrets.SERVER_USER }} /var/www/dashboard/"
           scp -i ~/.ssh/github_key -r frontend/* ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_WEB_IP }}:/var/www/dashboard/
-          ssh -i ~/.ssh/github_key ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_WEB_IP }} "sudo /bin/chmod 644 /var/www/dashboard/*"
+          ssh -i ~/.ssh/github_key ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_WEB_IP }} "find /var/www/dashboard/ -type d -exec sudo /bin/chmod 755 {} \; && find /var/www/dashboard/ -type f -exec sudo /bin/chmod 644 {} \;"
 
       - name: Desplegar Backend (Local en srvu-cpan03)
         run: |
+          sudo /bin/chown -R administrator:administrator /opt/api-ircnl/
           cp -r backend/* /opt/api-ircnl/
           echo "${{ secrets.ENV_PRODUCTION }}" > /opt/api-ircnl/.env
           sudo /bin/chmod 600 /opt/api-ircnl/.env
