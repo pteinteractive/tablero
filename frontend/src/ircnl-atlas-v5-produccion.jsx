@@ -134,7 +134,7 @@ function TabBusqueda({ T }) {
           ))}
         </div>
         <div style={{display:'flex', gap:10}}>
-          <input value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>e.key==='Enter'&&buscar()} placeholder="Valor de búsqueda..." style={{flex:1, padding:12, borderRadius:8, border:`1px solid ${T.bd2}`, background:T.panel, color:T.t1}} />
+          <input value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>e.key==='Enter'&&buscar()} placeholder="Valor de búsqueda..." autoFocus style={{flex:1, padding:12, borderRadius:8, border:`1px solid ${T.bd2}`, background:T.panel, color:T.t1}} />
           <button onClick={buscar} style={{background:T.terrac, color:'#fff', border:'none', padding:'0 25px', borderRadius:8, fontWeight:700}}>{loading?'...':'BUSCAR'}</button>
         </div>
       </div>
@@ -190,6 +190,7 @@ export default function AtlasDashboard() {
             color: tab===id ? '#fff' : 'rgba(255,255,255,0.4)',
             border:'none', textAlign:'left', padding:12, borderRadius:8, fontFamily:MONOS, fontSize:12, cursor:'pointer'
           }}>{id.toUpperCase()}</button>
+        <button onClick={()=>{localStorage.clear();window.location.reload()}} style={{background:"transparent", color:"#ff4d4f", border:"1px solid #ff4d4f", textAlign:"left", padding:12, borderRadius:8, fontFamily:MONOS, fontSize:12, cursor:"pointer", marginTop:20}}>🚪 SALIR DEL SISTEMA</button>
         ))}
         <button onClick={()=>{localStorage.removeItem('token'); setIsAuth(false);}} style={{marginTop:'auto', background:'transparent', border:`1px solid rgba(255,255,255,0.2)`, color:'rgba(255,255,255,0.5)', padding:10, borderRadius:8, fontSize:10}}>CERRAR SESIÓN</button>
       </div>
