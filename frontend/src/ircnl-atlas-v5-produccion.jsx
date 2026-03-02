@@ -198,7 +198,7 @@ export default function AtlasDashboard() {
       <div style={{flex:1, display:'flex', flexDirection:'column'}}>
         <header style={{height:65, background:T.topbar, borderBottom:`1px solid ${T.bd1}`, display:'flex', alignItems:'center', padding:'0 30px', justifyContent:'space-between'}}>
           <div style={{fontWeight:700, color:T.t1}}>{tab.toUpperCase()}</div>
-          <button onClick={()=>setDark(!dark)} style={{background:T.row2, border:`1px solid ${T.bd1}`, color:T.t2, padding:'5px 15px', borderRadius:8, fontSize:11}}>{dark?'☀️ DÍA':'🌙 NOCHE'}</button>
+          <button onClick={()=>setDark(!dark)} style={{background:T.row2, border:`1px solid ${T.bd1}`, color:T.t2, padding:'5px 15px', borderRadius:8, fontSize:11}}>{dark?'☀️ DÍA':'🌙 NOCHE'}</button> <button onClick={()=>{localStorage.clear();window.location.reload()}} style={{background:"#ff4d4f", border:"none", color:"white", padding:"5px 15px", borderRadius:8, fontSize:11, marginLeft:10, cursor:"pointer"}}>🚪 SALIR</button>
         </header>
         
         <main style={{flex:1, padding:30, overflowY:'auto'}}>
