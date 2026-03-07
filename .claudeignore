@@ -1,0 +1,148 @@
+# ============================================================
+# .claudeignore — Proyecto IRCNL / ATLAS Dashboard Fase 2
+# Versión: 1.1 | Fecha: 07/03/2026
+# Claude Code NO debe leer, modificar ni referenciar estos archivos
+#
+# Changelog v1.1 (07/03/2026 — Revisión CETH v3.0):
+#   - Agregado appsettings.Development.json a exclusiones
+#   - Agregado *.lock para archivos de NuGet/npm
+#   - Excepciones para outputs de reportes generados por la app
+#   - Exclusión de *.csv limitada a directorios sensibles (no global)
+#   - Nota aclaratoria sobre worker.js vs CLAUDE.md
+# ============================================================
+
+# ─── CREDENCIALES Y SECRETOS ────────────────────────────────
+# Claude Code nunca debe ver el contenido de estos archivos
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+*.p12
+jwt_private*
+jwt_public*
+secrets/
+**/secrets/
+appsettings.Production.json
+appsettings.Staging.json
+appsettings.Development.json
+
+# ─── FASE 1 — PRODUCCIÓN ACTIVA (NO TOCAR) ──────────────────
+# El código de Fase 1 está en producción. Claude Code no debe
+# leerlo ni modificarlo para evitar interferencias accidentales.
+fase1/
+# Rutas del Nodo .50 que contienen Fase 1 (solo referencia):
+# /var/www/dashboard/  ← NO MODIFICAR
+# /home/administrator/cuarentena_v6/  ← archivos en cuarentena
+
+# ─── NODO .51 — VERSIÓN ZOMBI ───────────────────────────────
+# El Nodo .51 tiene código obsoleto en rama develop.
+# No referenciar ni sincronizar hasta limpieza programada.
+# /var/www/html/ en Nodo .51  ← ignorar
+
+# ─── BACKUPS Y DUMPS DE BASE DE DATOS ───────────────────────
+# Los backups contienen datos reales de ciudadanos (CURP, etc.)
+*.sql.gz
+*.sql.bz2
+*.dump
+backups/
+**/backups/
+backups_fase1/
+
+# ─── DATOS PERSONALES Y EXPORTACIONES ───────────────────────
+# Archivos que pueden contener datos personales de ciudadanos
+# [v1.1] *.csv movido a directorios específicos (no global) para
+# permitir que Claude Code genere CSVs intermedios de análisis
+exports/
+**/exports/
+exports/**/*.csv
+reportes_generados/
+**/reportes_generados/
+
+# ─── ARCHIVOS DE SISTEMA Y RUNTIME ──────────────────────────
+node_modules/
+.npm/
+pm2-logs/
+*.log
+logs/
+**/logs/
+/tmp/
+
+# ─── BUILDS Y ARTEFACTOS .NET ───────────────────────────────
+bin/
+obj/
+.vs/
+*.user
+*.suo
+.idea/
+publish/
+**/publish/
+
+# ─── LOCK FILES ──────────────────────────────────────────────
+# [v1.1] Archivos de lock de gestores de paquetes — no aportan contexto
+packages.lock.json
+**/packages.lock.json
+package-lock.json
+yarn.lock
+
+# ─── ARCHIVOS DE CACHÉ ──────────────────────────────────────
+.cache/
+**/dist/
+**/.next/
+**/__pycache__/
+
+# ─── ARCHIVOS DE ENTORNO DE DESARROLLO LOCAL ────────────────
+.vscode/settings.json
+.vscode/launch.json
+launchSettings.json
+# Nota: .vscode/extensions.json SÍ puede incluirse (recomendaciones)
+
+# ─── RUNNER DE GITHUB ACTIONS (NODO .52) ────────────────────
+# Directorio del runner anterior (Node.js / PM2)
+# Solo aplica si Claude Code opera directamente en el servidor
+#
+# ⚠️ [v1.1] NOTA IMPORTANTE: El Plan de Trabajo Sesión S1-3 pide
+# a Claude Code "leer el worker.js" para extraer los 37 campos.
+# Sin embargo, esta exclusión es CORRECTA — los 37 campos están
+# documentados en CLAUDE.md Sección 5.1 como fuente de verdad.
+# Claude Code NO debe leer worker.js directamente.
+actions-runner/
+**/actions-runner/
+nodejs_worker_backup_*.tar.gz
+
+# ─── CUARENTENA ─────────────────────────────────────────────
+cuarentena_v6/
+**/cuarentena_v6/
+atlas-v6.jsx
+ircnl-atlas-v5-produccion.jsx
+
+# ─── ARCHIVOS GRANDES QUE NO APORTAN CONTEXTO DE CÓDIGO ─────
+# [v1.1] Excepciones agregadas para outputs de la aplicación
+*.xlsx
+*.docx
+*.pdf
+*.png
+*.jpg
+*.gif
+*.zip
+*.tar.gz
+!.env.example
+
+# [v1.1] Excepciones para archivos generados por la propia app
+# que Claude Code puede necesitar verificar durante testing
+!fase2/IRCNL.Tests/**/*.csv
+!fase2/test-output/**
+
+# ─── NOTA PARA CLAUDE CODE ──────────────────────────────────
+# Si necesitas acceder a la estructura de la base de datos,
+# usa las definiciones en IRCNL.Shared/Models/ y en
+# fase2/migrations/*.sql — nunca los dumps directamente.
+#
+# Si necesitas el contexto del proyecto, lee:
+#   1. CLAUDE.md (este mismo directorio) — FUENTE DE VERDAD
+#   2. fase2/IRCNL.Tablero.sln (estructura del proyecto)
+#   3. fase2/IRCNL.Shared/Models/ (modelos de datos)
+#
+# Si necesitas los 37 campos de HubSpot:
+#   → CLAUDE.md Sección 5.1 — NO leer worker.js
