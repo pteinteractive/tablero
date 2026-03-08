@@ -226,6 +226,9 @@ public class FakeTicketRepository : ITicketRepository
     public Task UpsertAsync(HubspotTicket ticket) => Task.CompletedTask;
 
     public Task UpsertLoteAsync(IEnumerable<HubspotTicket> tickets) => Task.CompletedTask;
+
+    public Task<(int nuevos, int actualizados, int errores)> UpsertLoteConConteoAsync(IEnumerable<HubspotTicket> tickets) =>
+        Task.FromResult((0, 0, 0));
 }
 
 public class FakeSyncLogRepository : ISyncLogRepository
