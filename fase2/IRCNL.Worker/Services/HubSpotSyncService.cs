@@ -10,7 +10,8 @@ namespace IRCNL.Worker.Services;
 /// BackgroundService que sincroniza tickets desde HubSpot CRM a hubspot_tickets.
 /// Endpoint: POST /crm/v3/objects/tickets/search (NO GET).
 /// Paginación por cursor (after). Ordenamiento hs_lastmodifieddate DESC.
-/// Rate limit 429 con retry automático (Polly).
+/// Rate limit 10 req/s respetado con espera mínima de 100ms entre páginas.
+/// Retry para 429 y errores transitorios delegado a Polly (Program.cs).
 /// Intervalo configurable: HUBSPOT_SYNC_INTERVAL_HOURS (default 1h).
 /// </summary>
 public class HubSpotSyncService : BackgroundService
@@ -27,6 +28,9 @@ public class HubSpotSyncService : BackgroundService
         "hs_time_to_first_response_sla_status,hs_time_to_close_sla_status," +
         "hs_num_times_contacted,num_notes,hs_form_id," +
         "tiempos,nombredia,solicitud,ine_ticket,content,hs_lastmodifieddate";
+
+    // Rate limit HubSpot: 10 req/s → mínimo 100ms entre llamadas a la API
+    private static readonly TimeSpan _rateLimitDelay = TimeSpan.FromMilliseconds(100);
 
     private readonly HttpClient _http;
     private readonly IServiceScopeFactory _scopeFactory;
@@ -51,10 +55,15 @@ public class HubSpotSyncService : BackgroundService
     {
         _logger.LogInformation("HubSpotSyncService iniciado. Intervalo: {Intervalo}", _intervalo);
 
-        while (!stoppingToken.IsCancellationRequested)
+        // PeriodicTimer: no acumula deriva, espera exacta entre ticks
+        using var timer = new PeriodicTimer(_intervalo);
+
+        // Ejecutar inmediatamente al arrancar, luego cada _intervalo
+        await SincronizarAsync(stoppingToken);
+
+        while (await timer.WaitForNextTickAsync(stoppingToken))
         {
             await SincronizarAsync(stoppingToken);
-            await Task.Delay(_intervalo, stoppingToken);
         }
     }
 
@@ -89,23 +98,45 @@ public class HubSpotSyncService : BackgroundService
                 if (tickets is null || tickets.Count == 0)
                     break;
 
-                await ticketRepo.UpsertLoteAsync(tickets);
+                // Upsert con conteo preciso de inserciones vs actualizaciones.
+                // Errores por registro NO abortan el ciclo.
+                var (pgNuevos, pgActualizados, pgErrores) =
+                    await ticketRepo.UpsertLoteConConteoAsync(tickets);
+
                 procesados += tickets.Count;
+                nuevos += pgNuevos;
+                actualizados += pgActualizados;
+                errores += pgErrores;
                 ultimoTicketId = tickets[^1].Id;
                 cursor = nextCursor;
 
-                _logger.LogDebug("Página procesada: {Count} tickets. Cursor: {Cursor}", tickets.Count, cursor);
+                _logger.LogDebug(
+                    "Página procesada: {Total} tickets (+{N} nuevos, ~{A} actualizados, !{E} errores). Cursor: {Cursor}",
+                    tickets.Count, pgNuevos, pgActualizados, pgErrores, cursor);
+
+                // Respetar rate limit 10 req/s entre páginas
+                if (cursor is not null)
+                    await Task.Delay(_rateLimitDelay, ct);
 
             } while (cursor is not null && !ct.IsCancellationRequested);
 
-            _logger.LogInformation("Sync completado — procesados={P} nuevos={N} actualizados={A} errores={E}",
+            _logger.LogInformation(
+                "Sync completado — procesados={P} nuevos={N} actualizados={A} errores={E}",
                 procesados, nuevos, actualizados, errores);
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("Sync cancelado — syncId={SyncId}", syncId);
+            await syncLogRepo.FinalizarSyncAsync(syncId, procesados, nuevos, actualizados, errores,
+                ultimoTicketId, "Cancelado por señal de parada");
+            return;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error inesperado en sync HubSpot — syncId={SyncId}", syncId);
             errores++;
-            await syncLogRepo.FinalizarSyncAsync(syncId, procesados, nuevos, actualizados, errores, ultimoTicketId, ex.Message);
+            await syncLogRepo.FinalizarSyncAsync(syncId, procesados, nuevos, actualizados, errores,
+                ultimoTicketId, ex.Message);
             return;
         }
 
@@ -115,6 +146,7 @@ public class HubSpotSyncService : BackgroundService
     /// <summary>
     /// POST /crm/v3/objects/tickets/search con paginación por cursor.
     /// Ordenamiento hs_lastmodifieddate DESC.
+    /// Retry para 429 y 5xx manejado por Polly en Program.cs.
     /// Retorna (tickets, nextCursor, errorMessage).
     /// </summary>
     private async Task<(List<HubspotTicket>? tickets, string? nextCursor, string? error)> ObtenerPaginaAsync(
@@ -128,33 +160,33 @@ public class HubSpotSyncService : BackgroundService
             after = cursor
         };
 
-        HttpResponseMessage? response = null;
-        int reintentos = 0;
-
-        while (reintentos < 5)
+        HttpResponseMessage response;
+        try
         {
             response = await _http.PostAsJsonAsync("/crm/v3/objects/tickets/search", body, ct);
-
-            if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
-            {
-                // Rate limit 429: esperar antes de reintentar
-                var espera = TimeSpan.FromSeconds(Math.Pow(2, reintentos));
-                _logger.LogWarning("Rate limit HubSpot 429 — reintento {R} en {S}s", reintentos + 1, espera.TotalSeconds);
-                await Task.Delay(espera, ct);
-                reintentos++;
-                continue;
-            }
-
-            break;
         }
-
-        if (response is null || !response.IsSuccessStatusCode)
+        catch (HttpRequestException ex)
         {
-            var contenido = response is not null ? await response.Content.ReadAsStringAsync(ct) : "sin respuesta";
-            return (null, null, $"HTTP {response?.StatusCode}: {contenido}");
+            return (null, null, $"Error de red: {ex.Message}");
         }
 
-        var json = await response.Content.ReadFromJsonAsync<HubSpotSearchResponse>(cancellationToken: ct);
+        if (!response.IsSuccessStatusCode)
+        {
+            var contenido = await response.Content.ReadAsStringAsync(ct);
+            return (null, null, $"HTTP {(int)response.StatusCode}: {contenido}");
+        }
+
+        HubSpotSearchResponse? json;
+        try
+        {
+            json = await response.Content.ReadFromJsonAsync<HubSpotSearchResponse>(
+                cancellationToken: ct);
+        }
+        catch (JsonException ex)
+        {
+            return (null, null, $"JSON inválido: {ex.Message}");
+        }
+
         if (json is null) return (null, null, "Respuesta vacía de HubSpot");
 
         var tickets = json.Results?.Select(MapearTicket).ToList() ?? [];

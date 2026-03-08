@@ -40,8 +40,17 @@ public class TicketRepository : ITicketRepository
 
     public async Task UpsertLoteAsync(IEnumerable<HubspotTicket> tickets)
     {
+        await UpsertLoteConConteoAsync(tickets);
+    }
+
+    public async Task<(int nuevos, int actualizados, int errores)> UpsertLoteConConteoAsync(
+        IEnumerable<HubspotTicket> tickets)
+    {
         // NOTA: campos LFPDPPP (nombre_persona_tramite, correo_solicitante, curp, expediente_catastral)
         // deben cifrarse con pgcrypto antes de insertar. Cifrado implementar en DT-09 (S2).
+        //
+        // xmax = 0 → INSERT (registro nuevo). xmax != 0 → UPDATE (conflicto resuelto).
+        // Esta es la forma canónica de distinguir INSERT vs UPDATE en ON CONFLICT DO UPDATE.
         const string sql = """
             INSERT INTO hubspot_tickets (
                 id, subject, expediente_catastral, expediente_municipio, folio,
@@ -104,12 +113,27 @@ public class TicketRepository : ITicketRepository
                 ine_ticket = EXCLUDED.ine_ticket,
                 content = EXCLUDED.content,
                 hs_lastmodifieddate = EXCLUDED.hs_lastmodifieddate,
-                synced_at = NOW();
+                synced_at = NOW()
+            RETURNING (xmax = 0) AS es_nuevo;
             """;
 
+        int nuevos = 0, actualizados = 0, errores = 0;
         await using var conn = Conexion();
         await conn.OpenAsync();
+
         foreach (var ticket in tickets)
-            await conn.ExecuteAsync(sql, ticket);
+        {
+            try
+            {
+                var esNuevo = await conn.ExecuteScalarAsync<bool>(sql, ticket);
+                if (esNuevo) nuevos++; else actualizados++;
+            }
+            catch (Exception)
+            {
+                errores++;
+            }
+        }
+
+        return (nuevos, actualizados, errores);
     }
 }
