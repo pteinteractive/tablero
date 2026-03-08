@@ -1,8 +1,17 @@
-using System.Text;
+using System.Security.Cryptography;
+using System.Threading.RateLimiting;
+using Dapper;
 using FluentValidation;
+using IRCNL.Api.Services;
 using IRCNL.Shared.Repositories;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
+
+// Dapper: mapeo automático snake_case (PostgreSQL) → PascalCase (C#)
+DefaultTypeMap.MatchNamesWithUnderscores = true;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -10,21 +19,31 @@ var builder = WebApplication.CreateBuilder(args);
 var connectionString = Environment.GetEnvironmentVariable("DATABASE_URL")
     ?? throw new InvalidOperationException("Variable DATABASE_URL no configurada.");
 
+var connectionStringSeg = Environment.GetEnvironmentVariable("DATABASE_URL_SEGURIDAD")
+    ?? throw new InvalidOperationException("Variable DATABASE_URL_SEGURIDAD no configurada.");
+
 var jwtPrivateKey = Environment.GetEnvironmentVariable("JWT_PRIVATE_KEY")
     ?? throw new InvalidOperationException("Variable JWT_PRIVATE_KEY no configurada.");
 
+var jwtPublicKey = Environment.GetEnvironmentVariable("JWT_PUBLIC_KEY")
+    ?? throw new InvalidOperationException("Variable JWT_PUBLIC_KEY no configurada.");
+
 var jwtIssuer = Environment.GetEnvironmentVariable("JWT_ISSUER") ?? "tablero.ircnl.gob.mx";
 var jwtAudience = Environment.GetEnvironmentVariable("JWT_AUDIENCE") ?? "tablero-api";
+var jwtExpiryMinutes = int.Parse(Environment.GetEnvironmentVariable("JWT_EXPIRY_MINUTES") ?? "480");
 
-// Repositorios (Dapper)
+// Repositorios Dapper
 builder.Services.AddScoped<ITicketRepository>(_ => new TicketRepository(connectionString));
 builder.Services.AddScoped<ISyncLogRepository>(_ => new SyncLogRepository(connectionString));
+builder.Services.AddScoped<IUsuarioRepository>(_ => new UsuarioRepository(connectionStringSeg));
 
-// Validadores FluentValidation
-builder.Services.AddValidatorsFromAssemblyContaining<Program>();
+// Validadores FluentValidation (escanea IRCNL.Shared donde vive LoginRequestValidator)
+builder.Services.AddValidatorsFromAssemblyContaining<IRCNL.Shared.DTOs.LoginRequestValidator>();
 
-// Auth JWT RS256 — DT-01: migrar de HS256 a RS256 (decisión cerrada)
-// TODO S1: cargar RSA key pair desde JWT_PRIVATE_KEY / JWT_PUBLIC_KEY
+// JWT RS256 — DT-01 resuelto: clave pública RSA para validación de tokens entrantes
+var rsaPublico = RSA.Create();
+rsaPublico.ImportFromPem(jwtPublicKey);
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -36,17 +55,67 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateIssuerSigningKey = true,
             ValidIssuer = jwtIssuer,
             ValidAudience = jwtAudience,
-            // RS256: reemplazar con RsaSecurityKey en S1
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtPrivateKey))
+            IssuerSigningKey = new RsaSecurityKey(rsaPublico),
+            ClockSkew = TimeSpan.Zero
         };
     });
 
+// JwtService singleton: firma con clave privada RSA (DT-01 resuelto)
+builder.Services.AddSingleton<IJwtService>(
+    new JwtService(jwtPrivateKey, jwtIssuer, jwtAudience, jwtExpiryMinutes));
+
+// Política global [Authorize] — DT-02 resuelto: todos los controllers requieren JWT
+// Excepciones via [AllowAnonymous]: AuthController.Login, HealthController.Get
 builder.Services.AddAuthorization();
-builder.Services.AddControllers();
+builder.Services.AddControllers(options =>
+{
+    var politica = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+    options.Filters.Add(new AuthorizeFilter(politica));
+});
+
+// Rate limiting — login: 5 peticiones/minuto por IP (OWASP A07: Identification and Authentication Failures)
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddPolicy("login", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            }));
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+});
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new() { Title = "IRCNL Tablero API", Version = "v2" });
+    c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    {
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        Description = "JWT RS256 — ingresar token sin prefijo 'Bearer'"
+    });
+    c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+    {
+        {
+            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+            {
+                Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                {
+                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            []
+        }
+    });
 });
 
 // Redis (instalar S2-4)
@@ -73,16 +142,20 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
-// Health check básico
+// Health probe para nginx (sin autenticación)
 app.MapGet("/api/health", () => Results.Ok(new
 {
     status = "ok",
     timestamp = DateTimeOffset.UtcNow,
     version = "fase2-s1"
-}));
+})).AllowAnonymous();
 
 app.Run();
+
+// Exponer clase Program para WebApplicationFactory en pruebas de integración
+public partial class Program { }
