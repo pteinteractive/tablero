@@ -1,0 +1,51 @@
+@page "/login"
+@using IRCNL.Shared.DTOs
+@inject NavigationManager Nav
+@inject ILogger<Login> Logger
+
+<h2>Iniciar Sesión — IRCNL Tablero</h2>
+
+<EditForm Model="@_request" OnValidSubmit="HandleLogin">
+    <DataAnnotationsValidator />
+
+    <div>
+        <label>Usuario (correo)</label>
+        <InputText @bind-Value="_request.Username" autocomplete="username" />
+    </div>
+    <div>
+        <label>Contraseña</label>
+        <InputText type="password" @bind-Value="_request.Password" autocomplete="current-password" />
+    </div>
+
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <p role="alert" style="color:red">@_error</p>
+    }
+
+    <button type="submit" disabled="@_cargando">
+        @(_cargando ? "Autenticando..." : "Entrar")
+    </button>
+</EditForm>
+
+@code {
+    private readonly LoginRequest _request = new();
+    private string? _error;
+    private bool _cargando;
+
+    private async Task HandleLogin()
+    {
+        _cargando = true;
+        _error = null;
+        try
+        {
+            // TODO S1: llamar IRCNL.Api/auth/login, guardar JWT, redirigir
+            Logger.LogWarning("Login Blazor — implementación JWT pendiente S1 (DT-01)");
+            await Task.Delay(100); // placeholder
+            _error = "Autenticación en implementación — Sprint 1";
+        }
+        finally
+        {
+            _cargando = false;
+        }
+    }
+}
